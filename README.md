@@ -12,8 +12,10 @@
 ![GitHub last commit](https://img.shields.io/github/last-commit/aryndavis/bookshelf)
 ![GitHub issues](https://img.shields.io/github/issues-raw/aryndavis/bookshelf)
 ![GitHub closed issues](https://img.shields.io/github/issues-closed-raw/aryndavis/bookshelf)
+![GitHub pull requests](https://img.shields.io/github/issues-pr/aryndavis/bookshelf)
+![GitHub closed pull requests](https://img.shields.io/github/issues-pr-closed/aryndavis/bookshelf)
 ![GitHub contributors](https://img.shields.io/github/contributors/aryndavis/bookshelf)
-
+![GitHub commit activity](https://img.shields.io/github/commit-activity/m/aryndavis/bookshelf)
 <!-- PROJECT LOGO -->
 <br />
 <div align="center">
