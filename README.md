@@ -7,6 +7,7 @@
 *** for contributors-url, forks-url, etc. This is an optional, concise syntax you may use.
 *** https://www.markdownguide.org/basic-syntax/#reference-style-links
 -->
+
 ![GitHub](https://img.shields.io/github/license/aryndavis/bookshelf)
 ![GitHub last commit](https://img.shields.io/github/last-commit/aryndavis/bookshelf)
 ![GitHub issues](https://img.shields.io/github/issues-raw/aryndavis/bookshelf)
@@ -67,7 +68,6 @@
 
 [![Product Name Screen Shot][product-screenshot]](https://example.com)
 
-Here's a blank template to get started: To avoid retyping too much info. Do a search and replace with your text editor for the following: `github_username`, `repo_name`, `twitter_handle`,`linkedin_username`,`email_client`,`email`,`project_title`,`project_description`
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -80,7 +80,7 @@ Here's a blank template to get started: To avoid retyping too much info. Do a se
 <!-- GETTING STARTED -->
 ## Getting Started
 
-To get a local copy up and running follow these simple example steps.
+To get a local copy up and running follow these simple steps.
 
 ### Prerequisites
 
@@ -104,6 +104,13 @@ To get a local copy up and running follow these simple example steps.
    ```sh
    npm install
    ```
+
+3. To run the project, use this command:
+
+    ```sh
+   npm run dev
+   ```
+
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
