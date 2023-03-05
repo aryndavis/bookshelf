@@ -66,6 +66,10 @@
 <!-- ABOUT THE PROJECT -->
 ## About The Project
 
+This project is my exploration and practice with React, and I wanted to build out some of my favorite features from the Goodreads app! I would also love to explore some other cool features that I think Goodreads could maybe explore, like cool visualizations and analyses for the books that we all love and enjoy. :) 
+
+Feel free to leave any suggestions or feedback! 
+
 [![Product Name Screen Shot][product-screenshot]](https://example.com)
 
 
