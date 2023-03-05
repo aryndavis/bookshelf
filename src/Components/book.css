@@ -1,0 +1,15 @@
+.book-container {
+    background:rgb(139, 182, 182);
+    border-radius: 25px;
+    width: 300px;
+    height: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.book-container2 {
+    background: rgb(214, 214, 168);
+    border-radius: 10px 140px 30px 140px;
+    width: 500px;
+    height: 100px;
+}
