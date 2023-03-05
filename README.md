@@ -7,7 +7,7 @@
 *** for contributors-url, forks-url, etc. This is an optional, concise syntax you may use.
 *** https://www.markdownguide.org/basic-syntax/#reference-style-links
 -->
-<span align="center">
+
 ![GitHub](https://img.shields.io/github/license/aryndavis/bookshelf)
 ![GitHub last commit](https://img.shields.io/github/last-commit/aryndavis/bookshelf)
 ![GitHub issues](https://img.shields.io/github/issues-raw/aryndavis/bookshelf)
@@ -17,7 +17,7 @@
 ![GitHub contributors](https://img.shields.io/github/contributors/aryndavis/bookshelf)
 ![GitHub commit activity](https://img.shields.io/github/commit-activity/m/aryndavis/bookshelf)
 
- </span>
+
 <!-- PROJECT LOGO -->
 <br />
 <div align="center">
