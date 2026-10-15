@@ -1,6 +1,7 @@
 import { useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import BookCover, { PALETTE } from '../components/BookCover'
+import NotInCatalog from '../components/NotInCatalog'
 import Panel from '../components/Panel'
 import { today } from '../lib/dates'
 import { lookupIsbn, normalizeIsbn } from '../lib/openLibrary'
@@ -59,16 +60,25 @@ function BookFormInner({ existing }: { existing?: Book }) {
   const [lookup, setLookup] = useState<{ state: 'idle' | 'busy' | 'done'; message: string }>({ state: 'idle', message: '' })
   const [added, setAdded] = useState<string | null>(null)
   const titleRef = useRef<HTMLInputElement>(null)
+  // Bumped when a lookup starts or is abandoned, so a stale answer can't overwrite newer input.
+  const lookupRun = useRef(0)
   const genres = [...new Set(books.map((b) => b.genre).filter(Boolean))].sort()
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft((d) => ({ ...d, [key]: value }))
 
+  const cancelLookup = () => {
+    lookupRun.current++
+    setLookup({ state: 'idle', message: '' })
+  }
+
   const runLookup = async () => {
     const isbn = normalizeIsbn(draft.isbn)
     if (!isbn) return setLookup({ state: 'done', message: 'Enter a 10 or 13 digit ISBN first.' })
+    const run = ++lookupRun.current
     setLookup({ state: 'busy', message: 'Looking it up…' })
     try {
       const found = await lookupIsbn(isbn)
+      if (run !== lookupRun.current) return
       if (!found) return setLookup({ state: 'done', message: 'No match on Open Library. Fill it in by hand.' })
       setDraft((d) => ({
         ...d,
@@ -80,6 +90,7 @@ function BookFormInner({ existing }: { existing?: Book }) {
       }))
       setLookup({ state: 'done', message: `Found “${found.title}”. Check the details below.` })
     } catch (e) {
+      if (run !== lookupRun.current) return
       setLookup({ state: 'done', message: (e as Error).message })
     }
   }
@@ -100,7 +111,7 @@ function BookFormInner({ existing }: { existing?: Book }) {
         if (another) {
           setAdded(book.title)
           setDraft(toDraft({ ...blank(), acquiredOn: input.acquiredOn }))
-          setLookup({ state: 'idle', message: '' })
+          cancelLookup()
           setBusy(false)
           titleRef.current?.focus()
         } else {
@@ -133,7 +144,16 @@ function BookFormInner({ existing }: { existing?: Book }) {
                 ISBN <small>(optional, fills in the rest for you)</small>
               </span>
               <span className="inline-field">
-                <input value={draft.isbn} inputMode="numeric" maxLength={17} onChange={(e) => set('isbn', e.target.value)} placeholder="978…" />
+                <input
+                  value={draft.isbn}
+                  inputMode="numeric"
+                  maxLength={17}
+                  onChange={(e) => {
+                    set('isbn', e.target.value)
+                    if (lookup.state === 'busy') cancelLookup()
+                  }}
+                  placeholder="978…"
+                />
                 <button type="button" className="pixel-button secondary" onClick={runLookup} disabled={lookup.state === 'busy'}>
                   Look up
                 </button>
@@ -251,15 +271,6 @@ export function EditBook() {
   const { id } = useParams()
   const { books } = useLibrary()
   const book = books.find((b) => b.id === id)
-  if (!book) {
-    return (
-      <Panel title="error.txt" tone="pink" className="narrow">
-        <p>That book isn’t in the catalog.</p>
-        <Link to="/" className="pixel-button">
-          Back to the catalog
-        </Link>
-      </Panel>
-    )
-  }
+  if (!book) return <NotInCatalog />
   return <BookFormInner key={book.id} existing={book} />
 }

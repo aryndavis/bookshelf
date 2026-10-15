@@ -1,5 +1,5 @@
 import type { Session } from '@supabase/supabase-js'
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { demoStore } from '../lib/demoStore'
 import { supabase, supabaseStore } from '../lib/supabase'
 import type { Book, BookInput, Loan, LoanInput } from '../lib/types'
@@ -49,17 +49,23 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const checkingLogin = session === undefined
   const signedIn = mode === 'demo' || Boolean(userId)
 
+  // Bumped on every load and on sign-out, so a slow response can't land after the user has changed.
+  const loadRun = useRef(0)
+
   const load = useCallback(() => {
+    const run = ++loadRun.current
     setStatus('loading')
     setError(null)
     store
       .load()
       .then((data) => {
+        if (run !== loadRun.current) return
         setBooks(data.books)
         setLoans(data.loans)
         setStatus('ready')
       })
       .catch((e: Error) => {
+        if (run !== loadRun.current) return
         setError(e.message)
         setStatus('error')
       })
@@ -68,6 +74,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (checkingLogin) return
     if (!signedIn) {
+      loadRun.current++
       setBooks([])
       setLoans([])
       setStatus('signed-out')
@@ -94,7 +101,10 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       if (authError) throw new Error(authError.message === 'Invalid login credentials' ? 'That email and password don’t match.' : authError.message)
     },
     async signOut() {
-      await supabase?.auth.signOut()
+      if (!supabase) return
+      // Signs out on every device. If that can't reach Supabase (e.g. offline), at least sign out here.
+      const { error: signOutError } = await supabase.auth.signOut()
+      if (signOutError) await supabase.auth.signOut({ scope: 'local' })
     },
     async addBook(input) {
       const book = await store.addBook(input)

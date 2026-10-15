@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
-import { isOverdue } from '../components/BookCard'
 import BookCover from '../components/BookCover'
-import Panel from '../components/Panel'
+import NotInCatalog from '../components/NotInCatalog'
 import Stamp, { type StampKind } from '../components/Stamp'
 import { config } from '../config'
 import { addDays, daysBetween, formatDate, plural, stampDate, today } from '../lib/dates'
+import { isOverdue } from '../lib/loans'
 import type { Book, Loan } from '../lib/types'
 import { useLibrary } from '../state/LibraryContext'
 
@@ -30,6 +30,9 @@ function CheckOutForm({ book, onDone }: { book: Book; onDone: (loan: Loan) => vo
   const submit = async (event: FormEvent) => {
     event.preventDefault()
     if (!borrower.trim()) return setError('Who’s borrowing it?')
+    // The form is noValidate, so the date input's required/max aren't enforced by the browser.
+    if (!loanedOn) return setError('When did it go out?')
+    if (loanedOn > today()) return setError('The checkout date can’t be in the future.')
     if (dueOn && dueOn < loanedOn) return setError('The due date can’t be before the checkout date.')
     setBusy(true)
     setError(null)
@@ -203,11 +206,18 @@ export default function BookPage() {
   const bookLoans = loans.filter((l) => l.bookId === id)
 
   // The stamp slams down right after a checkout or return; "returned" fades away afterwards.
-  const [stamp, setStamp] = useState<{ kind: StampKind; key: number } | null>(null)
+  const [stamp, setStamp] = useState<{ kind: StampKind; key: number; date: string } | null>(null)
   const [announcement, setAnnouncement] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const titleRef = useRef<HTMLHeadingElement>(null)
-  const justAdded = (location.state as { added?: boolean } | null)?.added === true
+  // Read once, then cleared from history so the note doesn't come back on reload.
+  const [justAdded, setJustAdded] = useState(() => (location.state as { added?: boolean } | null)?.added === true)
+
+  useEffect(() => {
+    if (justAdded) navigate(location.pathname, { replace: true })
+    // Only on arrival.
+  }, [])
 
   useEffect(() => {
     if (stamp?.kind !== 'returned') return
@@ -219,16 +229,7 @@ export default function BookPage() {
     titleRef.current?.focus()
   }, [id])
 
-  if (!book) {
-    return (
-      <Panel title="error.txt" tone="pink" className="narrow">
-        <p>That book isn’t in the catalog.</p>
-        <Link to="/" className="pixel-button">
-          Back to the catalog
-        </Link>
-      </Panel>
-    )
-  }
+  if (!book) return <NotInCatalog />
 
   const shownStamp: StampKind | null = stamp?.kind ?? (loan ? (isOverdue(loan) ? 'overdue' : 'out') : null)
   const details: [string, string | number | null][] = [
@@ -247,7 +248,7 @@ export default function BookPage() {
       <div className="book-layout">
         <div className={`book-hero${stamp ? ' thunk' : ''}${justAdded ? ' just-added' : ''}`} key={stamp?.key}>
           <BookCover title={book.title} color={book.coverColor} pattern={book.coverPattern} size={220} />
-          {shownStamp && <Stamp kind={shownStamp} date={stamp ? today() : loan?.loanedOn} animate={Boolean(stamp)} />}
+          {shownStamp && <Stamp kind={shownStamp} date={stamp ? stamp.date : loan?.loanedOn} animate={Boolean(stamp)} />}
           {stamp && (
             <span className="ink-sparks" aria-hidden="true">
               <i />
@@ -284,7 +285,8 @@ export default function BookPage() {
                 key={loan.id}
                 loan={loan}
                 onReturned={(returned) => {
-                  setStamp({ kind: 'returned', key: Date.now() })
+                  setJustAdded(false)
+                  setStamp({ kind: 'returned', key: Date.now(), date: returned.returnedOn ?? today() })
                   setAnnouncement(`Checked back in from ${returned.borrower}.`)
                 }}
               />
@@ -292,7 +294,8 @@ export default function BookPage() {
               <CheckOutForm
                 book={book}
                 onDone={(created) => {
-                  setStamp({ kind: 'out', key: Date.now() })
+                  setJustAdded(false)
+                  setStamp({ kind: 'out', key: Date.now(), date: created.loanedOn })
                   setAnnouncement(`Checked out to ${created.borrower}.`)
                 }}
               />
@@ -313,11 +316,12 @@ export default function BookPage() {
                   type="button"
                   className="pixel-button danger"
                   onClick={async () => {
+                    setDeleteError(null)
                     try {
                       await deleteBook(book.id)
                       navigate('/', { replace: true })
                     } catch (e) {
-                      setAnnouncement(`Couldn’t remove it: ${(e as Error).message}`)
+                      setDeleteError(`Couldn’t remove it: ${(e as Error).message}`)
                     }
                   }}
                 >
@@ -333,6 +337,11 @@ export default function BookPage() {
               </button>
             )}
           </div>
+          {deleteError && (
+            <p className="form-error" role="alert">
+              {deleteError}
+            </p>
+          )}
         </div>
       </div>
 

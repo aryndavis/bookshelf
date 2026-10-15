@@ -1,10 +1,8 @@
 import { Link } from 'react-router-dom'
-import { today } from '../lib/dates'
+import { isOverdue } from '../lib/loans'
 import type { Book, Loan } from '../lib/types'
 import BookCover from './BookCover'
 import Stamp from './Stamp'
-
-export const isOverdue = (loan: Loan) => Boolean(loan.dueOn && !loan.returnedOn && loan.dueOn < today())
 
 export default function BookCard({ book, loan }: { book: Book; loan?: Loan }) {
   const overdue = loan ? isOverdue(loan) : false

@@ -28,5 +28,6 @@ export function downloadCsv(books: Book[], loans: Loan[]) {
     const loan = open.get(b.id)
     return [b.title, b.author, b.isbn, b.genre, b.year, b.pages, b.acquiredOn, loan?.borrower, loan?.loanedOn, loan?.dueOn, b.notes]
   })
-  download(`library-catalog-${today()}.csv`, 'text/csv', [header, ...rows].map((r) => r.map(cell).join(',')).join('\r\n'))
+  // The byte-order mark tells Excel the file is UTF-8, so curly quotes and accents don't turn into mojibake.
+  download(`library-catalog-${today()}.csv`, 'text/csv;charset=utf-8', '﻿' + [header, ...rows].map((r) => r.map(cell).join(',')).join('\r\n'))
 }

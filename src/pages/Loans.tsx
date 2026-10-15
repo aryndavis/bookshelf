@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom'
-import { isOverdue } from '../components/BookCard'
 import BookCover from '../components/BookCover'
 import Panel from '../components/Panel'
 import { daysBetween, formatDate, plural, today } from '../lib/dates'
+import { isOverdue } from '../lib/loans'
 import type { Book, Loan } from '../lib/types'
 import { useLibrary } from '../state/LibraryContext'
 

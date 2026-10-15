@@ -6,7 +6,14 @@ const STORAGE_KEY = 'bookshelf-demo-v1'
 
 type Data = { books: Book[]; loans: Loan[] }
 
-const newId = () => crypto.randomUUID()
+// randomUUID only exists in secure contexts (HTTPS/localhost); getRandomValues also works over plain HTTP,
+// e.g. when the dev server is opened from a phone on the LAN.
+const newId = () =>
+  typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : '10000000-1000-4000-8000-100000000000'.replace(/[018]/g, (c) =>
+        (Number(c) ^ (crypto.getRandomValues(new Uint8Array(1))[0] & (15 >> (Number(c) / 4)))).toString(16),
+      )
 const now = () => new Date().toISOString()
 
 function sampleData(): Data {
@@ -50,13 +57,21 @@ function sampleData(): Data {
   }
 }
 
-function read(): Data {
+/** The saved library, or null if storage is unavailable, empty, or doesn't hold library data. */
+function stored(): Data | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) return JSON.parse(raw) as Data
+    const parsed = raw ? (JSON.parse(raw) as Partial<Data> | null) : null
+    if (parsed && Array.isArray(parsed.books) && Array.isArray(parsed.loans)) return parsed as Data
   } catch {
-    // Storage unavailable or corrupted: fall back to sample data.
+    // Storage unavailable or corrupted.
   }
+  return null
+}
+
+function read(): Data {
+  const existing = stored()
+  if (existing) return existing
   const data = sampleData()
   write(data)
   return data
@@ -80,40 +95,47 @@ export function resetDemo() {
 
 export function demoStore(): LibraryStore {
   let data = read()
+  // Another tab may have saved since we last looked; start each change from the stored copy so it isn't overwritten.
+  const latest = () => (data = stored() ?? data)
   const save = (next: Data) => {
     data = next
     write(data)
   }
   return {
     async load() {
-      return structuredClone(data)
+      return structuredClone(latest())
     },
     async addBook(input) {
+      const current = latest()
       const created: Book = { ...input, id: newId(), createdAt: now() }
-      save({ ...data, books: [created, ...data.books] })
+      save({ ...current, books: [created, ...current.books] })
       return created
     },
     async updateBook(id, input) {
-      const existing = data.books.find((b) => b.id === id)
+      const current = latest()
+      const existing = current.books.find((b) => b.id === id)
       if (!existing) throw new Error('Book not found.')
       const updated = { ...existing, ...input }
-      save({ ...data, books: data.books.map((b) => (b.id === id ? updated : b)) })
+      save({ ...current, books: current.books.map((b) => (b.id === id ? updated : b)) })
       return updated
     },
     async deleteBook(id) {
-      save({ books: data.books.filter((b) => b.id !== id), loans: data.loans.filter((l) => l.bookId !== id) })
+      const current = latest()
+      save({ books: current.books.filter((b) => b.id !== id), loans: current.loans.filter((l) => l.bookId !== id) })
     },
     async checkOut(bookId, input) {
-      if (data.loans.some((l) => l.bookId === bookId && !l.returnedOn)) throw new Error('That book is already checked out.')
+      const current = latest()
+      if (current.loans.some((l) => l.bookId === bookId && !l.returnedOn)) throw new Error('That book is already checked out.')
       const loan: Loan = { ...input, id: newId(), bookId, returnedOn: null, createdAt: now() }
-      save({ ...data, loans: [loan, ...data.loans] })
+      save({ ...current, loans: [loan, ...current.loans] })
       return loan
     },
     async returnLoan(loanId, returnedOn) {
-      const existing = data.loans.find((l) => l.id === loanId)
+      const current = latest()
+      const existing = current.loans.find((l) => l.id === loanId)
       if (!existing) throw new Error('Loan not found.')
       const updated = { ...existing, returnedOn }
-      save({ ...data, loans: data.loans.map((l) => (l.id === loanId ? updated : l)) })
+      save({ ...current, loans: current.loans.map((l) => (l.id === loanId ? updated : l)) })
       return updated
     },
   }

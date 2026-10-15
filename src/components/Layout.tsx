@@ -2,7 +2,7 @@ import { Link, NavLink, Outlet } from 'react-router-dom'
 import { config } from '../config'
 import { useLibrary } from '../state/LibraryContext'
 import BookCover from './BookCover'
-import { isOverdue } from './BookCard'
+import { isOverdue } from '../lib/loans'
 
 export default function Layout() {
   const { mode, books, activeLoans } = useLibrary()

@@ -85,16 +85,32 @@ const friendly = (error: { message: string; code?: string }) => {
   return new Error(error.message)
 }
 
+// Supabase returns at most 1000 rows per request by default, so read whole tables page by page.
+const PAGE_SIZE = 1000
+
+async function selectAll<Row>(client: SupabaseClient, table: string, columns: string, newestFirst: string): Promise<Row[]> {
+  const rows: Row[] = []
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await client
+      .from(table)
+      .select(columns)
+      .order(newestFirst, { ascending: false })
+      .order('id') // tie-breaker so pages don't overlap or skip rows
+      .range(from, from + PAGE_SIZE - 1)
+    if (error) throw friendly(error)
+    rows.push(...(data as unknown as Row[]))
+    if (data.length < PAGE_SIZE) return rows
+  }
+}
+
 export function supabaseStore(client: SupabaseClient): LibraryStore {
   return {
     async load() {
       const [books, loans] = await Promise.all([
-        client.from('books').select(bookColumns).order('created_at', { ascending: false }),
-        client.from('loans').select(loanColumns).order('loaned_on', { ascending: false }),
+        selectAll<BookRow>(client, 'books', bookColumns, 'created_at'),
+        selectAll<LoanRow>(client, 'loans', loanColumns, 'loaned_on'),
       ])
-      if (books.error) throw friendly(books.error)
-      if (loans.error) throw friendly(loans.error)
-      return { books: (books.data as BookRow[]).map(fromBookRow), loans: (loans.data as LoanRow[]).map(fromLoanRow) }
+      return { books: books.map(fromBookRow), loans: loans.map(fromLoanRow) }
     },
     async addBook(input) {
       const { data, error } = await client.from('books').insert(toBookRow(input)).select(bookColumns).single()

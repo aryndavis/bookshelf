@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
-import BookCard, { isOverdue } from '../components/BookCard'
+import { Link, useLocation, useSearchParams } from 'react-router-dom'
+import BookCard from '../components/BookCard'
 import BookCover from '../components/BookCover'
 import { config } from '../config'
 import { addDays, plural, today } from '../lib/dates'
+import { isOverdue } from '../lib/loans'
 import type { Book } from '../lib/types'
 import { useLibrary } from '../state/LibraryContext'
 
@@ -15,27 +16,41 @@ type Sort = keyof typeof SORTS
 
 const byText = (key: 'title' | 'author') => (a: Book, b: Book) => a[key].localeCompare(b[key], undefined, { sensitivity: 'base' })
 
+// Object.hasOwn, not `in`: `'toString' in FILTERS` is true.
+const readFilter = (params: URLSearchParams): Filter => {
+  const value = params.get('show')
+  return value && Object.hasOwn(FILTERS, value) ? (value as Filter) : 'all'
+}
+const readSort = (params: URLSearchParams): Sort => {
+  const value = params.get('sort')
+  return value && Object.hasOwn(SORTS, value) ? (value as Sort) : 'recent'
+}
+
 export default function Catalog() {
   const { books, activeLoans } = useLibrary()
   // The page's own state is the source of truth; the URL mirrors it so a search survives
   // going back from a book. (React Router's setter can't stack two quick updates.)
   const [params, setParams] = useSearchParams()
+  const location = useLocation()
   const [query, setQuery] = useState(params.get('q') ?? '')
-  const [filter, setFilter] = useState<Filter>(() => {
-    const value = params.get('show')
-    return value && value in FILTERS ? (value as Filter) : 'all'
-  })
-  const [sort, setSort] = useState<Sort>(() => {
-    const value = params.get('sort')
-    return value && value in SORTS ? (value as Sort) : 'recent'
-  })
+  const [filter, setFilter] = useState<Filter>(() => readFilter(params))
+  const [sort, setSort] = useState<Sort>(() => readSort(params))
+
+  // A link elsewhere (like the header's Catalog link) can change the URL without remounting this page:
+  // adopt that URL. Our own mirror writes are marked so they're skipped.
+  useEffect(() => {
+    if ((location.state as { fromCatalog?: boolean } | null)?.fromCatalog) return
+    setQuery(params.get('q') ?? '')
+    setFilter(readFilter(params))
+    setSort(readSort(params))
+  }, [location.key])
 
   useEffect(() => {
     const next = new URLSearchParams()
     if (query) next.set('q', query)
     if (filter !== 'all') next.set('show', filter)
     if (sort !== 'recent') next.set('sort', sort)
-    if (next.toString() !== window.location.search.replace(/^\?/, '')) setParams(next, { replace: true })
+    if (next.toString() !== window.location.search.replace(/^\?/, '')) setParams(next, { replace: true, state: { fromCatalog: true } })
   }, [query, filter, sort, setParams])
 
   const overdueCount = [...activeLoans.values()].filter(isOverdue).length
