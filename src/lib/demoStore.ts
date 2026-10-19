@@ -2,7 +2,7 @@ import { addDays, today } from './dates'
 import type { Book, LibraryStore, Loan } from './types'
 
 // Demo mode: used until Supabase is configured. Data stays in this browser only.
-const STORAGE_KEY = 'bookshelf-demo-v1'
+export const STORAGE_KEY = 'bookshelf-demo-v1'
 
 type Data = { books: Book[]; loans: Loan[] }
 
@@ -77,11 +77,14 @@ function read(): Data {
   return data
 }
 
-function write(data: Data) {
+/** Returns false if the data couldn't be stored. */
+function write(data: Data): boolean {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+    return true
   } catch {
     // Private mode or full storage: keep working in memory for this visit.
+    return false
   }
 }
 
@@ -95,11 +98,13 @@ export function resetDemo() {
 
 export function demoStore(): LibraryStore {
   let data = read()
+  // False once a change couldn't be stored: from then on this tab's copy is the newest, not the stored one.
+  let savedToStorage = true
   // Another tab may have saved since we last looked; start each change from the stored copy so it isn't overwritten.
-  const latest = () => (data = stored() ?? data)
+  const latest = () => (savedToStorage ? (data = stored() ?? data) : data)
   const save = (next: Data) => {
     data = next
-    write(data)
+    savedToStorage = write(data)
   }
   return {
     async load() {
@@ -125,6 +130,7 @@ export function demoStore(): LibraryStore {
     },
     async checkOut(bookId, input) {
       const current = latest()
+      if (!current.books.some((b) => b.id === bookId)) throw new Error('Book not found.')
       if (current.loans.some((l) => l.bookId === bookId && !l.returnedOn)) throw new Error('That book is already checked out.')
       const loan: Loan = { ...input, id: newId(), bookId, returnedOn: null, createdAt: now() }
       save({ ...current, loans: [loan, ...current.loans] })
@@ -134,6 +140,7 @@ export function demoStore(): LibraryStore {
       const current = latest()
       const existing = current.loans.find((l) => l.id === loanId)
       if (!existing) throw new Error('Loan not found.')
+      if (existing.returnedOn) throw new Error('That book was already checked back in.')
       const updated = { ...existing, returnedOn }
       save({ ...current, loans: current.loans.map((l) => (l.id === loanId ? updated : l)) })
       return updated

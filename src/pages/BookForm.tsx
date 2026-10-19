@@ -47,7 +47,9 @@ function parseDraft(d: Draft): BookInput | string {
   if (year !== null && !(Number.isInteger(year) && year >= 0 && year <= 3000)) return 'Year should be a number like 1998.'
   const pages = d.pages.trim() ? Number(d.pages) : null
   if (pages !== null && !(Number.isInteger(pages) && pages > 0 && pages <= 100000)) return 'Pages should be a whole number.'
+  // The form is noValidate, so the date input's max isn't enforced by the browser.
   if (!d.acquiredOn) return 'When did it join the library?'
+  if (d.acquiredOn > today()) return 'The date it joined the library can’t be in the future.'
   return { ...d, title: d.title.trim(), author: d.author.trim(), genre: d.genre.trim(), notes: d.notes.trim(), isbn, year, pages }
 }
 
@@ -75,19 +77,24 @@ function BookFormInner({ existing }: { existing?: Book }) {
     const isbn = normalizeIsbn(draft.isbn)
     if (!isbn) return setLookup({ state: 'done', message: 'Enter a 10 or 13 digit ISBN first.' })
     const run = ++lookupRun.current
+    const started = draft
     setLookup({ state: 'busy', message: 'Looking it up…' })
     try {
       const found = await lookupIsbn(isbn)
       if (run !== lookupRun.current) return
       if (!found) return setLookup({ state: 'done', message: 'No match on Open Library. Fill it in by hand.' })
-      setDraft((d) => ({
-        ...d,
-        isbn,
-        title: found.title,
-        author: found.author || d.author,
-        year: found.year?.toString() ?? d.year,
-        pages: found.pages?.toString() ?? d.pages,
-      }))
+      setDraft((d) => {
+        // Fill in what was found, but keep anything typed while the lookup was running.
+        const fill = (key: 'title' | 'author' | 'year' | 'pages', value: string | undefined) => (value && d[key] === started[key] ? value : d[key])
+        return {
+          ...d,
+          isbn,
+          title: fill('title', found.title),
+          author: fill('author', found.author),
+          year: fill('year', found.year?.toString()),
+          pages: fill('pages', found.pages?.toString()),
+        }
+      })
       setLookup({ state: 'done', message: `Found “${found.title}”. Check the details below.` })
     } catch (e) {
       if (run !== lookupRun.current) return
@@ -151,6 +158,12 @@ function BookFormInner({ existing }: { existing?: Book }) {
                   onChange={(e) => {
                     set('isbn', e.target.value)
                     if (lookup.state === 'busy') cancelLookup()
+                  }}
+                  onKeyDown={(e) => {
+                    // Enter (or a barcode scanner's trailing Enter) looks the ISBN up instead of submitting the form.
+                    if (e.key !== 'Enter') return
+                    e.preventDefault()
+                    if (lookup.state !== 'busy') runLookup()
                   }}
                   placeholder="978…"
                 />

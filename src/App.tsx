@@ -1,6 +1,7 @@
-import { BrowserRouter, Link, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import BookCover from './components/BookCover'
 import Layout from './components/Layout'
+import NotInCatalog from './components/NotInCatalog'
 import Panel from './components/Panel'
 import Backup from './pages/Backup'
 import { AddBook, EditBook } from './pages/BookForm'
@@ -9,17 +10,6 @@ import Catalog from './pages/Catalog'
 import Loans from './pages/Loans'
 import Login from './pages/Login'
 import { LibraryProvider, useLibrary } from './state/LibraryContext'
-
-function NotFound() {
-  return (
-    <Panel title="error.txt" tone="pink" className="narrow">
-      <p>This page wandered off the shelf.</p>
-      <Link to="/" className="pixel-button">
-        Back to the catalog
-      </Link>
-    </Panel>
-  )
-}
 
 /** Shows the login, loading, or error screen until the library is ready. */
 function Gate() {
@@ -61,7 +51,7 @@ function Gate() {
         <Route path="book/:id/edit" element={<EditBook />} />
         <Route path="loans" element={<Loans />} />
         <Route path="backup" element={<Backup />} />
-        <Route path="*" element={<NotFound />} />
+        <Route path="*" element={<NotInCatalog message="This page wandered off the shelf." />} />
       </Route>
     </Routes>
   )

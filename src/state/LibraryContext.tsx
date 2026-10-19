@@ -1,6 +1,6 @@
 import type { Session } from '@supabase/supabase-js'
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { demoStore } from '../lib/demoStore'
+import { demoStore, STORAGE_KEY } from '../lib/demoStore'
 import { supabase, supabaseStore } from '../lib/supabase'
 import type { Book, BookInput, Loan, LoanInput } from '../lib/types'
 
@@ -71,6 +71,28 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       })
   }, [store])
 
+  // Demo mode: when another tab saves, quietly pick up its changes (no loading screen) so this tab
+  // doesn't show stale books or loans.
+  useEffect(() => {
+    if (mode !== 'demo') return
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== STORAGE_KEY) return
+      const run = loadRun.current
+      store
+        .load()
+        .then((data) => {
+          if (run !== loadRun.current) return
+          setBooks(data.books)
+          setLoans(data.loans)
+        })
+        .catch(() => {
+          // Keep showing what we have; the next change or reload will pick up the latest copy.
+        })
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [mode, store])
+
   useEffect(() => {
     if (checkingLogin) return
     if (!signedIn) {
@@ -84,7 +106,19 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     // Keyed on the user id, so token refreshes don't trigger a reload.
   }, [checkingLogin, signedIn, userId, load])
 
-  const activeLoans = useMemo(() => new Map(loans.filter((l) => !l.returnedOn).map((l) => [l.bookId, l])), [loans])
+  const activeLoans = useMemo(() => {
+    // Skip loans for books that aren't loaded, so counts match the books on screen.
+    const bookIds = new Set(books.map((b) => b.id))
+    return new Map(loans.filter((l) => !l.returnedOn && bookIds.has(l.bookId)).map((l) => [l.bookId, l]))
+  }, [books, loans])
+
+  // A change that finishes after sign-out (or a switch to another user) must not land in the next library.
+  const commit = async <T,>(change: Promise<T>, apply: (result: T) => void) => {
+    const run = loadRun.current
+    const result = await change
+    if (run === loadRun.current) apply(result)
+    return result
+  }
 
   const value: LibraryValue = {
     mode,
@@ -101,36 +135,19 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       if (authError) throw new Error(authError.message === 'Invalid login credentials' ? 'That email and password don’t match.' : authError.message)
     },
     async signOut() {
-      if (!supabase) return
-      // Signs out on every device. If that can't reach Supabase (e.g. offline), at least sign out here.
-      const { error: signOutError } = await supabase.auth.signOut()
-      if (signOutError) await supabase.auth.signOut({ scope: 'local' })
+      // Signs out on every device. If Supabase can't be reached (e.g. offline), supabase-js still clears
+      // the session on this device.
+      await supabase?.auth.signOut()
     },
-    async addBook(input) {
-      const book = await store.addBook(input)
-      setBooks((list) => [book, ...list])
-      return book
-    },
-    async updateBook(id, input) {
-      const book = await store.updateBook(id, input)
-      setBooks((list) => list.map((b) => (b.id === id ? book : b)))
-      return book
-    },
-    async deleteBook(id) {
-      await store.deleteBook(id)
-      setBooks((list) => list.filter((b) => b.id !== id))
-      setLoans((list) => list.filter((l) => l.bookId !== id))
-    },
-    async checkOut(bookId, input) {
-      const loan = await store.checkOut(bookId, input)
-      setLoans((list) => [loan, ...list])
-      return loan
-    },
-    async returnLoan(loanId, returnedOn) {
-      const loan = await store.returnLoan(loanId, returnedOn)
-      setLoans((list) => list.map((l) => (l.id === loanId ? loan : l)))
-      return loan
-    },
+    addBook: (input) => commit(store.addBook(input), (book) => setBooks((list) => [book, ...list])),
+    updateBook: (id, input) => commit(store.updateBook(id, input), (book) => setBooks((list) => list.map((b) => (b.id === id ? book : b)))),
+    deleteBook: (id) =>
+      commit(store.deleteBook(id), () => {
+        setBooks((list) => list.filter((b) => b.id !== id))
+        setLoans((list) => list.filter((l) => l.bookId !== id))
+      }),
+    checkOut: (bookId, input) => commit(store.checkOut(bookId, input), (loan) => setLoans((list) => [loan, ...list])),
+    returnLoan: (loanId, returnedOn) => commit(store.returnLoan(loanId, returnedOn), (loan) => setLoans((list) => list.map((l) => (l.id === loanId ? loan : l)))),
   }
 
   return <LibraryContext.Provider value={value}>{children}</LibraryContext.Provider>

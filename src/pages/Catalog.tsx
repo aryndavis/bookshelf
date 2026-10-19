@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useLocation, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useNavigationType, useSearchParams } from 'react-router-dom'
 import BookCard from '../components/BookCard'
 import BookCover from '../components/BookCover'
 import { config } from '../config'
@@ -17,14 +17,12 @@ type Sort = keyof typeof SORTS
 const byText = (key: 'title' | 'author') => (a: Book, b: Book) => a[key].localeCompare(b[key], undefined, { sensitivity: 'base' })
 
 // Object.hasOwn, not `in`: `'toString' in FILTERS` is true.
-const readFilter = (params: URLSearchParams): Filter => {
-  const value = params.get('show')
-  return value && Object.hasOwn(FILTERS, value) ? (value as Filter) : 'all'
+const readOption = <T extends string>(params: URLSearchParams, name: string, options: Record<T, string>, fallback: T): T => {
+  const value = params.get(name)
+  return value !== null && Object.hasOwn(options, value) ? (value as T) : fallback
 }
-const readSort = (params: URLSearchParams): Sort => {
-  const value = params.get('sort')
-  return value && Object.hasOwn(SORTS, value) ? (value as Sort) : 'recent'
-}
+const readFilter = (params: URLSearchParams) => readOption<Filter>(params, 'show', FILTERS, 'all')
+const readSort = (params: URLSearchParams) => readOption<Sort>(params, 'sort', SORTS, 'recent')
 
 export default function Catalog() {
   const { books, activeLoans } = useLibrary()
@@ -32,26 +30,30 @@ export default function Catalog() {
   // going back from a book. (React Router's setter can't stack two quick updates.)
   const [params, setParams] = useSearchParams()
   const location = useLocation()
+  const navigationType = useNavigationType()
   const [query, setQuery] = useState(params.get('q') ?? '')
   const [filter, setFilter] = useState<Filter>(() => readFilter(params))
   const [sort, setSort] = useState<Sort>(() => readSort(params))
 
-  // A link elsewhere (like the header's Catalog link) can change the URL without remounting this page:
-  // adopt that URL. Our own mirror writes are marked so they're skipped.
+  // A link elsewhere (like the header's Catalog link) or Back/Forward can change the URL without remounting
+  // this page: adopt that URL. Our own mirror writes are marked so they're skipped, but the mark stays in
+  // history, so Back/Forward (POP) onto one of those entries must still be adopted.
   useEffect(() => {
-    if ((location.state as { fromCatalog?: boolean } | null)?.fromCatalog) return
+    if (navigationType !== 'POP' && (location.state as { fromCatalog?: boolean } | null)?.fromCatalog) return
     setQuery(params.get('q') ?? '')
     setFilter(readFilter(params))
     setSort(readSort(params))
   }, [location.key])
 
+  // Mirror only when the page's own state changes. (setParams changes with every URL change; reacting to it
+  // would write the old state back over a URL that's about to be adopted.)
   useEffect(() => {
     const next = new URLSearchParams()
     if (query) next.set('q', query)
     if (filter !== 'all') next.set('show', filter)
     if (sort !== 'recent') next.set('sort', sort)
     if (next.toString() !== window.location.search.replace(/^\?/, '')) setParams(next, { replace: true, state: { fromCatalog: true } })
-  }, [query, filter, sort, setParams])
+  }, [query, filter, sort])
 
   const overdueCount = [...activeLoans.values()].filter(isOverdue).length
   const borrowers = new Set([...activeLoans.values()].map((l) => l.borrower.trim().toLowerCase())).size

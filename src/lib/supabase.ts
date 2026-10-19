@@ -90,16 +90,17 @@ const PAGE_SIZE = 1000
 
 async function selectAll<Row>(client: SupabaseClient, table: string, columns: string, newestFirst: string): Promise<Row[]> {
   const rows: Row[] = []
-  for (let from = 0; ; from += PAGE_SIZE) {
-    const { data, error } = await client
+  for (;;) {
+    const { data, error, count } = await client
       .from(table)
-      .select(columns)
+      .select(columns, { count: 'exact' })
       .order(newestFirst, { ascending: false })
       .order('id') // tie-breaker so pages don't overlap or skip rows
-      .range(from, from + PAGE_SIZE - 1)
+      .range(rows.length, rows.length + PAGE_SIZE - 1)
     if (error) throw friendly(error)
     rows.push(...(data as unknown as Row[]))
-    if (data.length < PAGE_SIZE) return rows
+    // Stop on the total, not on a short page: the project's "Max rows" setting can make every page shorter than PAGE_SIZE.
+    if (data.length === 0 || rows.length >= (count ?? 0)) return rows
   }
 }
 
@@ -133,8 +134,16 @@ export function supabaseStore(client: SupabaseClient): LibraryStore {
       return fromLoanRow(data as LoanRow)
     },
     async returnLoan(loanId, returnedOn) {
-      const { data, error } = await client.from('loans').update({ returned_on: returnedOn }).eq('id', loanId).select(loanColumns).single()
+      // Only an open loan can be checked in, so a stale screen can't overwrite an earlier return date.
+      const { data, error } = await client
+        .from('loans')
+        .update({ returned_on: returnedOn })
+        .eq('id', loanId)
+        .is('returned_on', null)
+        .select(loanColumns)
+        .maybeSingle()
       if (error) throw friendly(error)
+      if (!data) throw new Error('That book was already checked back in.')
       return fromLoanRow(data as LoanRow)
     },
   }

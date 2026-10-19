@@ -29,5 +29,5 @@ export function downloadCsv(books: Book[], loans: Loan[]) {
     return [b.title, b.author, b.isbn, b.genre, b.year, b.pages, b.acquiredOn, loan?.borrower, loan?.loanedOn, loan?.dueOn, b.notes]
   })
   // The byte-order mark tells Excel the file is UTF-8, so curly quotes and accents don't turn into mojibake.
-  download(`library-catalog-${today()}.csv`, 'text/csv;charset=utf-8', '﻿' + [header, ...rows].map((r) => r.map(cell).join(',')).join('\r\n'))
+  download(`library-catalog-${today()}.csv`, 'text/csv;charset=utf-8', '\uFEFF' + [header, ...rows].map((r) => r.map(cell).join(',')).join('\r\n'))
 }

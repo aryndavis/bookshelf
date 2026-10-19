@@ -115,6 +115,7 @@ function OnLoan({ loan, onReturned }: { loan: Loan; onReturned: (loan: Loan) => 
 
   const submit = async (event: FormEvent) => {
     event.preventDefault()
+    if (!returnedOn) return setError('When did it come back?')
     if (returnedOn < loan.loanedOn) return setError('It can’t come back before it went out.')
     setBusy(true)
     setError(null)
