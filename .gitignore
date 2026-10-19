@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Supabase keys and other local settings
+.env
+.env.*
+!.env.example
