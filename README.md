@@ -1,5 +1,7 @@
 # Aryn’s Library 📚
 
+Live at **[library.arynlynn.com](https://library.arynlynn.com)**.
+
 A cozy, pixel-art catalog for my physical book collection. It keeps track of every book I own, which ones I’ve lent out, who has them, and for how long.
 
 - **Card catalog:** every book as a cute pixel cover, with search, filters (on the shelf, checked out, overdue) and sorting.
@@ -52,8 +54,8 @@ When deploying (for example to Cloudflare Pages), set the same two `VITE_SUPABAS
 
 1. In Netlify, **Add new site → Import an existing project → GitHub** and pick this repo. `netlify.toml` already sets the build (`npm run build`, publish `dist`, Node 22) and the rule that lets links like `/loans` load directly.
 2. **Environment variables** (Site configuration → Environment variables): add `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`, the same values as `.env.local`. Without them the site builds in demo mode. Then **Deploys → Trigger deploy**, because the values are baked in at build time. Never add the `service_role` / secret key.
-3. **Domain:** Site configuration → Domain management → **Add a domain** (for example a subdomain like `library.yourdomain.com`), then add the DNS record Netlify shows. HTTPS is set up automatically.
-4. **Supabase:** in Authentication → URL Configuration, set **Site URL** to the new address so any emails Supabase sends link to the right place.
+3. **Domain:** Site configuration → Domain management → **Add a domain** `library.arynlynn.com`. The domain uses Netlify DNS, so Netlify adds the record itself. HTTPS is set up automatically.
+4. **Supabase:** in Authentication → URL Configuration, set **Site URL** to `https://library.arynlynn.com` so any emails Supabase sends link to the right place.
 
 ## Security
 
