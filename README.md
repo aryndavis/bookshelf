@@ -58,6 +58,21 @@ When deploying, set the same two `VITE_SUPABASE_…` variables in the host’s b
 
 **Signing in:** visitors see the catalog and book pages. You sign in with **Librarian sign in** in the header. Adding a book, editing, lending, **Who has what** and **Backup** also ask you to sign in.
 
+## Text messages (optional)
+
+The arynlynn.com text service can add books and record loans by text: `book 9780142410370`, `book Matilda by Roald Dahl`, `out Matilda to Sam`, `back Matilda`, and `who has what`. The texting code and setup live in the [personal-website](https://github.com/aryndavis/personal-website) repo.
+
+To connect it to this library:
+
+1. **SQL Editor → New query:** paste in [`supabase/sms.sql`](supabase/sms.sql) and run it, after `public-view.sql`.
+2. In a **new query**, run `select private.new_sms_secret();` and copy the result. That's the text service's password; it's shown only once.
+3. Put it in Netlify (personal-website site) as `LIBRARY_SMS_SECRET`, marked as a secret. Running step 2 again makes a new password and turns off the old one.
+
+**How it's protected**
+- The text service gets no key to the whole database. It can call only four functions: add a book, check out, check in, and list open loans.
+- Each of those functions checks the password first, and the database stores only a SHA-256 hash of it.
+- Even with the password, it's impossible to edit or delete books or read anything else.
+
 ## Deploy on Netlify
 
 1. In Netlify, **Add new site → Import an existing project → GitHub** and pick this repo. `netlify.toml` already sets the build (`npm run build`, publish `dist`, Node 22) and the rule that lets links like `/loans` load directly.
