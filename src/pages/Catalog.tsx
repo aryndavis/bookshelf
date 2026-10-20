@@ -78,7 +78,7 @@ export default function Catalog() {
   return (
     <>
       <section className="hero" aria-labelledby="catalog-title">
-        <h1 id="catalog-title">Card catalog</h1>
+        <h1 id="catalog-title">Book catalog</h1>
         <ul className="stats" aria-label="Library at a glance">
           <li>
             <strong>{books.length}</strong> {books.length === 1 ? 'book' : 'books'}

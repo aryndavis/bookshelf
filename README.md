@@ -4,7 +4,7 @@ Live at **[library.arynlynn.com](https://library.arynlynn.com)**.
 
 A cozy, pixel-art catalog for my physical book collection. It keeps track of every book I own, which ones I’ve lent out, who has them, and for how long.
 
-- **Card catalog:** every book as a cute pixel cover, with search, filters (on the shelf, checked out, overdue) and sorting.
+- **Book catalog:** every book as a cute pixel cover, with search, filters (on the shelf, checked out, overdue) and sorting.
 - **New arrivals shelf:** books added in the last 45 days, plus a quick “add a book you just bought” slot.
 - **Add books fast:** type an ISBN to fill in the title, author and year from [Open Library](https://openlibrary.org). Then pick a cover color and pattern (or hit **Surprise me**) and watch the preview update. Use **Add & start another** to enter a whole stack.
 - **Lending:** check a book out to someone with an optional due date. A rubber stamp slams onto the cover, and **RETURNED** stamps it when it comes back. Every book has an old-school pocket library card showing its loan history.
@@ -17,9 +17,9 @@ Built with React, TypeScript, Vite, and [Supabase](https://supabase.com) for sto
 
 Taken in demo mode (sample books) from the production build at 1280×800. Update them whenever a page's look changes (they live in `docs/screenshots/`).
 
-| Card catalog | Book page |
+| Book catalog | Book page |
 | --- | --- |
-| ![Card catalog with new arrivals and all books](docs/screenshots/catalog.jpg) | ![A book that's on the shelf](docs/screenshots/book.jpg) |
+| ![Book catalog with new arrivals and all books](docs/screenshots/catalog.jpg) | ![A book that's on the shelf](docs/screenshots/book.jpg) |
 | **Checked out (stamp and date-due card)** | **Who has what** |
 | ![A checked-out book with its stamp and date-due card](docs/screenshots/book-checked-out.jpg) | ![Loans grouped by borrower](docs/screenshots/loans.jpg) |
 | **Add a book** | **Backup** |
