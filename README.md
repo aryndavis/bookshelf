@@ -11,6 +11,18 @@ A cozy, pixel-art catalog for my physical book collection. It keeps track of eve
 
 Built with React, TypeScript, Vite, and [Supabase](https://supabase.com) for storage and login.
 
+## Screenshots
+
+Taken in demo mode (sample books) from the production build at 1280×800. Update them whenever a page's look changes (they live in `docs/screenshots/`).
+
+| Card catalog | Book page |
+| --- | --- |
+| ![Card catalog with new arrivals and all books](docs/screenshots/catalog.jpg) | ![A book that's on the shelf](docs/screenshots/book.jpg) |
+| **Checked out (stamp and date-due card)** | **Who has what** |
+| ![A checked-out book with its stamp and date-due card](docs/screenshots/book-checked-out.jpg) | ![Loans grouped by borrower](docs/screenshots/loans.jpg) |
+| **Add a book** | **Backup** |
+| ![Add a book form](docs/screenshots/add-book.jpg) | ![Backup and export page](docs/screenshots/backup.jpg) |
+
 ## Run it
 
 Requires Node.js LTS and npm.
