@@ -113,6 +113,22 @@ export function supabaseStore(client: SupabaseClient): LibraryStore {
       ])
       return { books: books.map(fromBookRow), loans: loans.map(fromLoanRow) }
     },
+    async loadPublic() {
+      const [books, out] = await Promise.all([selectAll<BookRow>(client, 'books', bookColumns, 'created_at'), client.rpc('checked_out_books')])
+      if (out.error) throw friendly(out.error)
+      const loans = (out.data as { book_id: string; loaned_on: string; due_on: string | null }[]).map((row): Loan => ({
+        id: `public-${row.book_id}`,
+        bookId: row.book_id,
+        borrower: '',
+        contact: '',
+        loanedOn: row.loaned_on,
+        dueOn: row.due_on,
+        returnedOn: null,
+        notes: '',
+        createdAt: row.loaned_on,
+      }))
+      return { books: books.map(fromBookRow), loans }
+    },
     async addBook(input) {
       const { data, error } = await client.from('books').insert(toBookRow(input)).select(bookColumns).single()
       if (error) throw friendly(error)

@@ -25,7 +25,7 @@ const readFilter = (params: URLSearchParams) => readOption<Filter>(params, 'show
 const readSort = (params: URLSearchParams) => readOption<Sort>(params, 'sort', SORTS, 'recent')
 
 export default function Catalog() {
-  const { books, activeLoans } = useLibrary()
+  const { books, activeLoans, canEdit } = useLibrary()
   // The page's own state is the source of truth; the URL mirrors it so a search survives
   // going back from a book. (React Router's setter can't stack two quick updates.)
   const [params, setParams] = useSearchParams()
@@ -87,7 +87,7 @@ export default function Catalog() {
             <strong>{books.length - activeLoans.size}</strong> on the shelf
           </li>
           <li>
-            <strong>{activeLoans.size}</strong> on loan{borrowers > 0 && ` to ${borrowers} ${borrowers === 1 ? 'person' : 'people'}`}
+            <strong>{activeLoans.size}</strong> on loan{canEdit && borrowers > 0 && ` to ${borrowers} ${borrowers === 1 ? 'person' : 'people'}`}
           </li>
           <li className={overdueCount ? 'alert' : ''}>
             <strong>{overdueCount}</strong> overdue
@@ -95,33 +95,37 @@ export default function Catalog() {
         </ul>
       </section>
 
-      <section className="arrivals" aria-labelledby="arrivals-title">
-        <h2 id="arrivals-title">
-          <span aria-hidden="true">✦ </span>New arrivals
-        </h2>
-        <div className="shelf-scroll">
-          <ul className="arrivals-row">
-            {arrivals.map((book) => (
-              <li key={book.id}>
-                <Link to={`/book/${book.id}`} className="arrival">
-                  <BookCover title={book.title} color={book.coverColor} pattern={book.coverPattern} size={84} />
-                  <span className="sr-only">{book.title}</span>
-                  <span className="new-tag" aria-hidden="true">
-                    new!
-                  </span>
-                </Link>
-              </li>
-            ))}
-            <li>
-              <Link to="/add" className="arrival add-slot">
-                <span aria-hidden="true">+</span>
-                Add a book you just bought
-              </Link>
-            </li>
-          </ul>
-        </div>
-        <div className="shelf-plank" aria-hidden="true" />
-      </section>
+      {(canEdit || arrivals.length > 0) && (
+        <section className="arrivals" aria-labelledby="arrivals-title">
+          <h2 id="arrivals-title">
+            <span aria-hidden="true">✦ </span>New arrivals
+          </h2>
+          <div className="shelf-scroll">
+            <ul className="arrivals-row">
+              {arrivals.map((book) => (
+                <li key={book.id}>
+                  <Link to={`/book/${book.id}`} className="arrival">
+                    <BookCover title={book.title} color={book.coverColor} pattern={book.coverPattern} size={84} />
+                    <span className="sr-only">{book.title}</span>
+                    <span className="new-tag" aria-hidden="true">
+                      new!
+                    </span>
+                  </Link>
+                </li>
+              ))}
+              {canEdit && (
+                <li>
+                  <Link to="/add" className="arrival add-slot">
+                    <span aria-hidden="true">+</span>
+                    Add a book you just bought
+                  </Link>
+                </li>
+              )}
+            </ul>
+          </div>
+          <div className="shelf-plank" aria-hidden="true" />
+        </section>
+      )}
 
       <section className="catalog" aria-labelledby="all-books-title">
         <div className="catalog-head">
@@ -129,7 +133,12 @@ export default function Catalog() {
           <div className="controls">
             <label className="search">
               <span className="sr-only">Search the catalog</span>
-              <input type="search" placeholder="Search title, author, genre, borrower…" value={query} onChange={(e) => setQuery(e.target.value)} />
+              <input
+                type="search"
+                placeholder={canEdit ? 'Search title, author, genre, borrower…' : 'Search title, author, genre…'}
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
             </label>
             <label className="sort">
               <span>Sort</span>
@@ -158,10 +167,16 @@ export default function Catalog() {
         {books.length === 0 ? (
           <div className="empty">
             <BookCover title="?" color="cream" pattern="stars" size={90} />
-            <p>Your shelves are empty. Add the first book!</p>
-            <Link to="/add" className="pixel-button">
-              + Add a book
-            </Link>
+            {canEdit ? (
+              <>
+                <p>Your shelves are empty. Add the first book!</p>
+                <Link to="/add" className="pixel-button">
+                  + Add a book
+                </Link>
+              </>
+            ) : (
+              <p>The shelves are empty for now. Check back soon!</p>
+            )}
           </div>
         ) : shown.length === 0 ? (
           <p className="empty">No books match. Try a different search or filter.</p>

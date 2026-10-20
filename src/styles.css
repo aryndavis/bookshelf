@@ -1208,3 +1208,31 @@ legend {
     opacity: 1;
   }
 }
+
+/* ---------- Public (signed-out) view ---------- */
+
+.login-page.embedded {
+  min-height: 0;
+  padding-block: 32px 48px;
+}
+
+.sign-in-link {
+  justify-self: end;
+  color: inherit;
+  font: 500 12px/1 var(--pixel);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.public-status {
+  display: inline-block;
+  margin: 8px 0 0;
+  padding: 8px 12px;
+  border: 3px solid var(--ink);
+  background: var(--mint, #b8f0d8);
+  font: 600 14px/1.2 var(--pixel);
+}
+
+.public-status.is-out {
+  background: var(--pink, #ffc2dd);
+}

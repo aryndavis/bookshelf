@@ -201,7 +201,7 @@ export default function BookPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
-  const { books, loans, activeLoans, deleteBook } = useLibrary()
+  const { books, loans, activeLoans, deleteBook, canEdit } = useLibrary()
   const book = books.find((b) => b.id === id)
   const loan = book ? activeLoans.get(book.id) : undefined
   const bookLoans = loans.filter((l) => l.bookId === id)
@@ -280,64 +280,73 @@ export default function BookPage() {
           </dl>
           {book.notes && <p className="book-notes">{book.notes}</p>}
 
-          <div className="loan-box">
-            {loan ? (
-              <OnLoan
-                key={loan.id}
-                loan={loan}
-                onReturned={(returned) => {
-                  setJustAdded(false)
-                  setStamp({ kind: 'returned', key: Date.now(), date: returned.returnedOn ?? today() })
-                  setAnnouncement(`Checked back in from ${returned.borrower}.`)
-                }}
-              />
-            ) : (
-              <CheckOutForm
-                book={book}
-                onDone={(created) => {
-                  setJustAdded(false)
-                  setStamp({ kind: 'out', key: Date.now(), date: created.loanedOn })
-                  setAnnouncement(`Checked out to ${created.borrower}.`)
-                }}
-              />
-            )}
-          </div>
+          {!canEdit ? (
+            // Visitors see whether the book is in, never who has it.
+            <p className={`public-status${loan ? ' is-out' : ''}`}>
+              {loan ? <>Checked out{loan.dueOn && <> · due back {formatDate(loan.dueOn)}</>}</> : 'On the shelf'}
+            </p>
+          ) : (
+            <div className="loan-box">
+              {loan ? (
+                <OnLoan
+                  key={loan.id}
+                  loan={loan}
+                  onReturned={(returned) => {
+                    setJustAdded(false)
+                    setStamp({ kind: 'returned', key: Date.now(), date: returned.returnedOn ?? today() })
+                    setAnnouncement(`Checked back in from ${returned.borrower}.`)
+                  }}
+                />
+              ) : (
+                <CheckOutForm
+                  book={book}
+                  onDone={(created) => {
+                    setJustAdded(false)
+                    setStamp({ kind: 'out', key: Date.now(), date: created.loanedOn })
+                    setAnnouncement(`Checked out to ${created.borrower}.`)
+                  }}
+                />
+              )}
+            </div>
+          )}
           <p className="sr-only" role="status">
             {announcement}
           </p>
 
-          <div className="book-actions">
-            <Link to={`/book/${book.id}/edit`} className="pixel-button secondary">
-              ✎ Edit details
-            </Link>
-            {confirmDelete ? (
-              <span className="confirm">
-                Remove this book and its loan history?
-                <button
-                  type="button"
-                  className="pixel-button danger"
-                  onClick={async () => {
-                    setDeleteError(null)
-                    try {
-                      await deleteBook(book.id)
-                      navigate('/', { replace: true })
-                    } catch (e) {
-                      setDeleteError(`Couldn’t remove it: ${(e as Error).message}`)
-                    }
-                  }}
-                >
-                  Yes, remove
+          {canEdit && (
+            <div className="book-actions">
+              <Link to={`/book/${book.id}/edit`} className="pixel-button secondary">
+                ✎ Edit details
+              </Link>
+              {confirmDelete ? (
+                <span className="confirm">
+                  Remove this book and its loan history?
+                  <button
+                    type="button"
+                    className="pixel-button danger"
+                    onClick={async () => {
+                      setDeleteError(null)
+                      try {
+                        await deleteBook(book.id)
+                        navigate('/', { replace: true })
+                      } catch (e) {
+                        setDeleteError(`Couldn’t remove it: ${(e as Error).message}`)
+                      }
+                    }}
+                  >
+                    Yes, remove
+                  </button>
+                  <button type="button" className="pixel-button secondary" onClick={() => setConfirmDelete(false)}>
+                    Keep it
+                  </button>
+                </span>
+              ) : (
+                <button type="button" className="pixel-button secondary" onClick={() => setConfirmDelete(true)}>
+                  Remove book
                 </button>
-                <button type="button" className="pixel-button secondary" onClick={() => setConfirmDelete(false)}>
-                  Keep it
-                </button>
-              </span>
-            ) : (
-              <button type="button" className="pixel-button secondary" onClick={() => setConfirmDelete(true)}>
-                Remove book
-              </button>
-            )}
-          </div>
+              )}
+            </div>
+          )}
           {deleteError && (
             <p className="form-error" role="alert">
               {deleteError}
@@ -346,7 +355,8 @@ export default function BookPage() {
         </div>
       </div>
 
-      <LibraryCard book={book} loans={bookLoans} />
+      {/* The card lists borrowers, so only the owner sees it. */}
+      {canEdit && <LibraryCard book={book} loans={bookLoans} />}
     </article>
   )
 }

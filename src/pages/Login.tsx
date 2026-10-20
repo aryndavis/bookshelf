@@ -1,10 +1,13 @@
 import { useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import BookCover from '../components/BookCover'
 import Panel from '../components/Panel'
 import { config } from '../config'
 import { useLibrary } from '../state/LibraryContext'
 
-export default function Login() {
+/** The sign-in card. `embedded` puts it inside the site layout (for owner-only pages) instead of a full screen. */
+export default function Login({ embedded = false, reason }: { embedded?: boolean; reason?: string }) {
+  const Wrapper = embedded ? 'div' : 'main'
   const { signIn } = useLibrary()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -24,7 +27,7 @@ export default function Login() {
   }
 
   return (
-    <main className="login-page" id="main">
+    <Wrapper className={`login-page${embedded ? ' embedded' : ''}`} id={embedded ? undefined : 'main'}>
       <div className="login-books" aria-hidden="true">
         <BookCover title="L" color="pink" pattern="hearts" size={70} />
         <BookCover title="I" color="mint" pattern="dots" size={70} />
@@ -32,7 +35,7 @@ export default function Login() {
       </div>
       <Panel title="library_card.exe" tone="yellow" className="login-panel" labelledBy="login-title">
         <h1 id="login-title">{config.libraryName}</h1>
-        <p>Library card, please!</p>
+        <p>{reason ?? 'Library card, please!'}</p>
         <form onSubmit={submit}>
           <label>
             <span>Email</span>
@@ -52,6 +55,7 @@ export default function Login() {
           </button>
         </form>
       </Panel>
-    </main>
+      {embedded && <Link to="/">← Back to the catalog</Link>}
+    </Wrapper>
   )
 }

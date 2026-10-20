@@ -44,11 +44,19 @@ Without Supabase settings the app runs in **demo mode**: sample books, saved onl
 2. **SQL Editor → New query:** paste in [`supabase/schema.sql`](supabase/schema.sql) and run it. This creates the `books` and `loans` tables and turns on Row Level Security, so each signed-in user can only see and change their own rows.
 3. **Authentication → Users → Add user:** create your account, with **Auto Confirm User** checked.
 4. **Authentication → Sign In / Providers:** turn **off** “Allow new users to sign up”.
-5. Copy `.env.example` to `.env.local` and fill in the **Project URL** and the **publishable key**. `.env.local` is gitignored.
+5. **SQL Editor → New query:** paste in [`supabase/public-view.sql`](supabase/public-view.sql) and run it, after creating your account. This makes the library **public and read-only**:
+   - Anyone can browse your books, and see which are checked out and when they're due.
+   - Borrower names, contact details and loan notes stay private.
+   - Only you, signed in, can add, edit, lend or delete.
+   - It sets your account (the project's only user) as the owner.
+   - Until this is run, the app asks visitors to sign in before showing anything, as before.
+6. Copy `.env.example` to `.env.local` and fill in the **Project URL** and the **publishable key**. `.env.local` is gitignored.
 
 The publishable key is meant to be public; the database rules protect your data. **Never** put the secret / `service_role` key in this app or repo.
 
-When deploying (for example to Cloudflare Pages), set the same two `VITE_SUPABASE_…` variables in the host’s build settings.
+When deploying, set the same two `VITE_SUPABASE_…` variables in the host’s build settings.
+
+**Signing in:** visitors see the catalog and book pages. You sign in with **Librarian sign in** in the header. Adding a book, editing, lending, **Who has what** and **Backup** also ask you to sign in.
 
 ## Deploy on Netlify
 

@@ -39,6 +39,11 @@ export type LoanInput = Pick<Loan, 'borrower' | 'contact' | 'loanedOn' | 'dueOn'
 /** Where the library's data lives: Supabase in real use, or this browser in demo mode. */
 export interface LibraryStore {
   load(): Promise<{ books: Book[]; loans: Loan[] }>
+  /**
+   * What visitors who aren't signed in can see: the owner's books, and which are checked out.
+   * Those loans have no borrower, contact or notes. Not available in demo mode.
+   */
+  loadPublic?(): Promise<{ books: Book[]; loans: Loan[] }>
   addBook(input: BookInput): Promise<Book>
   updateBook(id: string, input: BookInput): Promise<Book>
   deleteBook(id: string): Promise<void>
