@@ -48,6 +48,13 @@ The publishable key is meant to be public; the database rules protect your data.
 
 When deploying (for example to Cloudflare Pages), set the same two `VITE_SUPABASE_…` variables in the host’s build settings.
 
+## Deploy on Netlify
+
+1. In Netlify, **Add new site → Import an existing project → GitHub** and pick this repo. `netlify.toml` already sets the build (`npm run build`, publish `dist`, Node 22) and the rule that lets links like `/loans` load directly.
+2. **Environment variables** (Site configuration → Environment variables): add `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`, the same values as `.env.local`. Without them the site builds in demo mode. Then **Deploys → Trigger deploy**, because the values are baked in at build time. Never add the `service_role` / secret key.
+3. **Domain:** Site configuration → Domain management → **Add a domain** (for example a subdomain like `library.yourdomain.com`), then add the DNS record Netlify shows. HTTPS is set up automatically.
+4. **Supabase:** in Authentication → URL Configuration, set **Site URL** to the new address so any emails Supabase sends link to the right place.
+
 ## Security
 
 - **Row Level Security:** every row has an `owner_id`, and the policies only allow the signed-in owner to read or write it. Signed-out visitors are denied entirely. A book can only have one open loan at a time, which the database enforces.
