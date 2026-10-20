@@ -5,7 +5,7 @@ import BookCover from './BookCover'
 import { isOverdue } from '../lib/loans'
 
 export default function Layout() {
-  const { mode, books, activeLoans } = useLibrary()
+  const { mode, books, activeLoans, canEdit } = useLibrary()
   const overdue = [...activeLoans.values()].filter(isOverdue).length
 
   return (
@@ -34,14 +34,24 @@ export default function Layout() {
           <NavLink to="/" end>
             Catalog <span className="count">{books.length}</span>
           </NavLink>
-          <NavLink to="/loans">
-            Who has what <span className={`count${overdue ? ' alert' : ''}`}>{activeLoans.size}</span>
-          </NavLink>
-          <NavLink to="/backup">Backup</NavLink>
+          {canEdit && (
+            <>
+              <NavLink to="/loans">
+                Who has what <span className={`count${overdue ? ' alert' : ''}`}>{activeLoans.size}</span>
+              </NavLink>
+              <NavLink to="/backup">Backup</NavLink>
+            </>
+          )}
         </nav>
-        <Link to="/add" className="pixel-button add-button">
-          + Add a book
-        </Link>
+        {canEdit ? (
+          <Link to="/add" className="pixel-button add-button">
+            + Add a book
+          </Link>
+        ) : (
+          <Link to="/signin" className="sign-in-link">
+            Librarian sign in
+          </Link>
+        )}
       </header>
       <main id="main" tabIndex={-1}>
         <Outlet />

@@ -2,6 +2,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import BookCover from './components/BookCover'
 import Layout from './components/Layout'
 import NotInCatalog from './components/NotInCatalog'
+import OwnerOnly from './components/OwnerOnly'
 import Panel from './components/Panel'
 import Backup from './pages/Backup'
 import { AddBook, EditBook } from './pages/BookForm'
@@ -9,6 +10,7 @@ import BookPage from './pages/BookPage'
 import Catalog from './pages/Catalog'
 import Loans from './pages/Loans'
 import Login from './pages/Login'
+import SignIn from './pages/SignIn'
 import { LibraryProvider, useLibrary } from './state/LibraryContext'
 
 /** Shows the login, loading, or error screen until the library is ready. */
@@ -46,11 +48,40 @@ function Gate() {
     <Routes>
       <Route element={<Layout />}>
         <Route index element={<Catalog />} />
-        <Route path="add" element={<AddBook />} />
+        <Route
+          path="add"
+          element={
+            <OwnerOnly reason="Only the librarian can add books. Sign in to continue.">
+              <AddBook />
+            </OwnerOnly>
+          }
+        />
         <Route path="book/:id" element={<BookPage />} />
-        <Route path="book/:id/edit" element={<EditBook />} />
-        <Route path="loans" element={<Loans />} />
-        <Route path="backup" element={<Backup />} />
+        <Route
+          path="book/:id/edit"
+          element={
+            <OwnerOnly>
+              <EditBook />
+            </OwnerOnly>
+          }
+        />
+        <Route
+          path="loans"
+          element={
+            <OwnerOnly reason="Who has what is private. Sign in to see it.">
+              <Loans />
+            </OwnerOnly>
+          }
+        />
+        <Route
+          path="backup"
+          element={
+            <OwnerOnly>
+              <Backup />
+            </OwnerOnly>
+          }
+        />
+        <Route path="signin" element={<SignIn />} />
         <Route path="*" element={<NotInCatalog message="This page wandered off the shelf." />} />
       </Route>
     </Routes>

@@ -4,12 +4,16 @@ import { demoStore, STORAGE_KEY } from '../lib/demoStore'
 import { supabase, supabaseStore } from '../lib/supabase'
 import type { Book, BookInput, Loan, LoanInput } from '../lib/types'
 
+// 'signed-out' only happens when the public view isn't set up (supabase/public-view.sql not run yet):
+// then the app falls back to asking for a login before showing anything.
 type Status = 'loading' | 'signed-out' | 'ready' | 'error'
 
 interface LibraryValue {
   /** 'cloud' when Supabase is configured; 'demo' keeps data in this browser. */
   mode: 'cloud' | 'demo'
   status: Status
+  /** True when the owner is signed in (or in demo mode). Visitors can only look. */
+  canEdit: boolean
   error: string | null
   userEmail: string | null
   books: Book[]
@@ -52,12 +56,13 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   // Bumped on every load and on sign-out, so a slow response can't land after the user has changed.
   const loadRun = useRef(0)
 
-  const load = useCallback(() => {
+  const load = useCallback((asVisitor = false) => {
     const run = ++loadRun.current
     setStatus('loading')
     setError(null)
-    store
-      .load()
+    const request = asVisitor ? store.loadPublic?.() : store.load()
+    if (!request) return setStatus('signed-out')
+    request
       .then((data) => {
         if (run !== loadRun.current) return
         setBooks(data.books)
@@ -66,6 +71,12 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       })
       .catch((e: Error) => {
         if (run !== loadRun.current) return
+        if (asVisitor) {
+          // The public view isn't set up yet, so ask for a login like before.
+          setBooks([])
+          setLoans([])
+          return setStatus('signed-out')
+        }
         setError(e.message)
         setStatus('error')
       })
@@ -95,14 +106,12 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (checkingLogin) return
+    // Signed out: show the public, read-only library. Clear first so nothing private lingers on screen.
     if (!signedIn) {
-      loadRun.current++
       setBooks([])
       setLoans([])
-      setStatus('signed-out')
-      return
     }
-    load()
+    load(!signedIn)
     // Keyed on the user id, so token refreshes don't trigger a reload.
   }, [checkingLogin, signedIn, userId, load])
 
@@ -123,12 +132,13 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const value: LibraryValue = {
     mode,
     status,
+    canEdit: signedIn,
     error,
     userEmail: session?.user.email ?? null,
     books,
     loans,
     activeLoans,
-    reload: load,
+    reload: () => load(!signedIn),
     async signIn(email, password) {
       if (!supabase) return
       const { error: authError } = await supabase.auth.signInWithPassword({ email, password })
