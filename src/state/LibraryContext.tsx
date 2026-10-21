@@ -55,7 +55,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       const nextUser = next?.user.id ?? null
       if (currentUser.current !== undefined && nextUser !== currentUser.current) {
         // Signed in, out, or as someone else: show the loading screen, and clear right away so nothing
-        // from the previous view stays on screen.
+        // from the previous view stays on screen. Bumping loadRun drops anything still in flight.
+        loadRun.current++
         setBooks([])
         setLoans([])
         setError(null)
