@@ -38,12 +38,16 @@ export default function Catalog() {
   // A link elsewhere (like the header's Catalog link) or Back/Forward can change the URL without remounting
   // this page: adopt that URL. Our own mirror writes are marked so they're skipped, but the mark stays in
   // history, so Back/Forward (POP) onto one of those entries must still be adopted.
-  useEffect(() => {
-    if (navigationType !== 'POP' && (location.state as { fromCatalog?: boolean } | null)?.fromCatalog) return
-    setQuery(params.get('q') ?? '')
-    setFilter(readFilter(params))
-    setSort(readSort(params))
-  }, [location.key])
+  // This adjusts state while rendering (React's pattern for reacting to a changed value), not in an effect.
+  const [adoptedKey, setAdoptedKey] = useState(location.key)
+  if (location.key !== adoptedKey) {
+    setAdoptedKey(location.key)
+    if (navigationType === 'POP' || !(location.state as { fromCatalog?: boolean } | null)?.fromCatalog) {
+      setQuery(params.get('q') ?? '')
+      setFilter(readFilter(params))
+      setSort(readSort(params))
+    }
+  }
 
   // Mirror only when the page's own state changes. (setParams changes with every URL change; reacting to it
   // would write the old state back over a URL that's about to be adopted.)
@@ -53,6 +57,7 @@ export default function Catalog() {
     if (filter !== 'all') next.set('show', filter)
     if (sort !== 'recent') next.set('sort', sort)
     if (next.toString() !== window.location.search.replace(/^\?/, '')) setParams(next, { replace: true, state: { fromCatalog: true } })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- deliberately not setParams; see above.
   }, [query, filter, sort])
 
   const overdueCount = [...activeLoans.values()].filter(isOverdue).length

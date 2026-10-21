@@ -21,7 +21,8 @@ const cell = (value: unknown) => {
   return `"${text.replace(/"/g, '""')}"`
 }
 
-export function downloadCsv(books: Book[], loans: Loan[]) {
+/** The catalog as CSV text, one row per book, with who has it if it's checked out. */
+export function catalogCsv(books: Book[], loans: Loan[]) {
   const open = new Map(loans.filter((l) => !l.returnedOn).map((l) => [l.bookId, l]))
   const header = ['Title', 'Author', 'ISBN', 'Genre', 'Year', 'Pages', 'Acquired', 'Checked out to', 'Out since', 'Due', 'Notes']
   const rows = books.map((b) => {
@@ -29,5 +30,9 @@ export function downloadCsv(books: Book[], loans: Loan[]) {
     return [b.title, b.author, b.isbn, b.genre, b.year, b.pages, b.acquiredOn, loan?.borrower, loan?.loanedOn, loan?.dueOn, b.notes]
   })
   // The byte-order mark tells Excel the file is UTF-8, so curly quotes and accents don't turn into mojibake.
-  download(`library-catalog-${today()}.csv`, 'text/csv;charset=utf-8', '\uFEFF' + [header, ...rows].map((r) => r.map(cell).join(',')).join('\r\n'))
+  return '\uFEFF' + [header, ...rows].map((r) => r.map(cell).join(',')).join('\r\n')
+}
+
+export function downloadCsv(books: Book[], loans: Loan[]) {
+  download(`library-catalog-${today()}.csv`, 'text/csv;charset=utf-8', catalogCsv(books, loans))
 }

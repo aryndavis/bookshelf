@@ -34,7 +34,11 @@ npm install
 npm run dev       # http://localhost:5173
 npm run build     # type-check and build to dist/
 npm run preview   # serve the production build
+npm run lint      # ESLint (TypeScript + React hooks rules)
+npm test          # unit tests (Vitest)
 ```
+
+Every pull request runs lint, type-check, tests and a build in GitHub Actions (`.github/workflows/ci.yml`).
 
 Without Supabase settings the app runs in **demo mode**: sample books, saved only in that browser.
 

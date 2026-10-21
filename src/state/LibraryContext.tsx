@@ -42,10 +42,28 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const [books, setBooks] = useState<Book[]>([])
   const [loans, setLoans] = useState<Loan[]>([])
 
+  // Who the loaded library belongs to (null = signed out), so token refreshes for the same user are ignored.
+  const currentUser = useRef<string | null | undefined>(undefined)
+
   useEffect(() => {
     if (!supabase) return
-    supabase.auth.getSession().then(({ data }) => setSession(data.session))
-    const { data } = supabase.auth.onAuthStateChange((_event, next) => setSession(next))
+    supabase.auth.getSession().then(({ data }) => {
+      currentUser.current ??= data.session?.user.id ?? null
+      setSession(data.session)
+    })
+    const { data } = supabase.auth.onAuthStateChange((_event, next) => {
+      const nextUser = next?.user.id ?? null
+      if (currentUser.current !== undefined && nextUser !== currentUser.current) {
+        // Signed in, out, or as someone else: show the loading screen, and clear right away so nothing
+        // from the previous view stays on screen.
+        setBooks([])
+        setLoans([])
+        setError(null)
+        setStatus('loading')
+      }
+      currentUser.current = nextUser
+      setSession(next)
+    })
     return () => data.subscription.unsubscribe()
   }, [])
 
@@ -56,12 +74,11 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   // Bumped on every load and on sign-out, so a slow response can't land after the user has changed.
   const loadRun = useRef(0)
 
-  const load = useCallback((asVisitor = false) => {
+  // Fetches the library. Whatever starts a load (signing in or out, or Try again) shows the loading screen;
+  // this only fills in the result.
+  const fetchLibrary = useCallback((asVisitor: boolean) => {
     const run = ++loadRun.current
-    setStatus('loading')
-    setError(null)
-    const request = asVisitor ? store.loadPublic?.() : store.load()
-    if (!request) return setStatus('signed-out')
+    const request = asVisitor ? (store.loadPublic?.() ?? Promise.reject(new Error('No public view'))) : store.load()
     request
       .then((data) => {
         if (run !== loadRun.current) return
@@ -106,14 +123,10 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (checkingLogin) return
-    // Signed out: show the public, read-only library. Clear first so nothing private lingers on screen.
-    if (!signedIn) {
-      setBooks([])
-      setLoans([])
-    }
-    load(!signedIn)
+    // Signed out: show the public, read-only library.
+    fetchLibrary(!signedIn)
     // Keyed on the user id, so token refreshes don't trigger a reload.
-  }, [checkingLogin, signedIn, userId, load])
+  }, [checkingLogin, signedIn, userId, fetchLibrary])
 
   const activeLoans = useMemo(() => {
     // Skip loans for books that aren't loaded, so counts match the books on screen.
@@ -138,7 +151,11 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     books,
     loans,
     activeLoans,
-    reload: () => load(!signedIn),
+    reload: () => {
+      setError(null)
+      setStatus('loading')
+      fetchLibrary(!signedIn)
+    },
     async signIn(email, password) {
       if (!supabase) return
       const { error: authError } = await supabase.auth.signInWithPassword({ email, password })
