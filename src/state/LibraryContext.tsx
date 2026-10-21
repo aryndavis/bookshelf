@@ -42,6 +42,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const [books, setBooks] = useState<Book[]>([])
   const [loans, setLoans] = useState<Loan[]>([])
 
+  // Bumped on every load and on sign-out, so a slow response can't land after the user has changed.
+  const loadRun = useRef(0)
   // Who the loaded library belongs to (null = signed out), so token refreshes for the same user are ignored.
   const currentUser = useRef<string | null | undefined>(undefined)
 
@@ -72,8 +74,6 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const checkingLogin = session === undefined
   const signedIn = mode === 'demo' || Boolean(userId)
 
-  // Bumped on every load and on sign-out, so a slow response can't land after the user has changed.
-  const loadRun = useRef(0)
 
   // Fetches the library. Whatever starts a load (signing in or out, or Try again) shows the loading screen;
   // this only fills in the result.
