@@ -217,7 +217,8 @@ export default function BookPage() {
 
   useEffect(() => {
     if (justAdded) navigate(location.pathname, { replace: true })
-    // Only on arrival.
+    // Only on arrival: later renders must not clear the history entry again.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
