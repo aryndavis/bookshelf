@@ -75,7 +75,9 @@ export function fakeSupabase(
         }
         out = matches
       } else {
-        out = [...matches]
+        // Postgres doesn't promise any order for rows the ORDER BY can't tell apart, and it can differ between
+        // requests, so shuffle first: paging that relies on a lucky order fails here too.
+        out = [...matches].sort(() => Math.random() - 0.5)
         for (const { column, ascending } of [...order].reverse()) {
           out.sort((a, b) => String(a[column]).localeCompare(String(b[column])) * (ascending ? 1 : -1))
         }
