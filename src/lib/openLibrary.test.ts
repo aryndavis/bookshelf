@@ -37,3 +37,17 @@ describe('lookupIsbn', () => {
     await expect(lookupIsbn('9780142410370')).rejects.toThrow(/didn’t answer/)
   })
 })
+
+describe('lookupIsbn: network failures', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('passes a dropped connection on so the form can show it', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new TypeError('Failed to fetch'))))
+    await expect(lookupIsbn('9780142410370')).rejects.toThrow('Failed to fetch')
+  })
+
+  it('treats a response that is not the expected shape as "not found"', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ unexpected: true }) })))
+    expect(await lookupIsbn('9780142410370')).toBeNull()
+  })
+})
