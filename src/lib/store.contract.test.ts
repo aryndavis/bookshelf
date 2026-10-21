@@ -24,8 +24,9 @@ const bookInput = (patch: Partial<BookInput> = {}): BookInput => ({
 })
 const loanInput = { borrower: 'Sam', contact: '555-0100', loanedOn: '2026-10-18', dueOn: '2026-11-08', notes: '' }
 
-function libraryDatabase() {
+function libraryDatabase({ maxRows }: { maxRows?: number } = {}) {
   return fakeSupabase({
+    maxRows,
     userId: '11111111-1111-1111-1111-111111111111',
     cascades: { books: [{ table: 'loans', column: 'book_id' }] },
     beforeInsert: (table, row, existing) => {
@@ -133,10 +134,14 @@ describe.each(implementations)('%s', (_name, makeStore) => {
 })
 
 describe('Supabase store: beyond the shared contract', () => {
-  it('loads more rows than one request returns (1,000), across page boundaries', async () => {
-    // Arrange: 2,500 books already in the database
-    const db = libraryDatabase()
-    const books = db.tables.get('books') ?? []
+  // The fake caps every answer at `maxRows` (1,000 by default, like Supabase), so these fail if the store stops paging.
+  it.each([
+    ['the default 1,000-row limit', undefined],
+    ['a lower "Max rows" setting (every page comes back short)', 300],
+  ])('loads all 2,500 books past %s, each exactly once', async (_limit, maxRows) => {
+    // Arrange: 2,500 books, many sharing a created_at so the id tie-breaker matters
+    const db = libraryDatabase({ maxRows })
+    const books: Record<string, unknown>[] = []
     db.tables.set('books', books)
     for (let i = 0; i < 2500; i++) {
       books.push({ id: `b${String(i).padStart(4, '0')}`, title: `Book ${i}`, author: '', isbn: null, genre: '', year: null, pages: null, cover_color: 'pink', cover_pattern: 'plain', notes: '', acquired_on: '2026-01-01', created_at: `2026-01-01T00:00:${String(i % 60).padStart(2, '0')}Z` })

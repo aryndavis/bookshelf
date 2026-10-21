@@ -44,7 +44,7 @@ Every pull request runs lint, type-check, tests and a build in GitHub Actions (`
 - **Storage contract** (`src/lib/store.contract.test.ts`): the demo store and the Supabase store pass the same suite.
   - Add, edit and delete books (deleting a book removes its loans).
   - Check out and check in, refusing a double checkout or a second check-in.
-  - The Supabase store runs against an in-memory fake client (`src/test/fakeSupabase.ts`) that mirrors the database rules. It's also tested on paging past 1,000 rows, the public view (no borrower details), and passing database errors on.
+  - The Supabase store runs against an in-memory fake client (`src/test/fakeSupabase.ts`) that mirrors the database constraints (one open loan per book, deletes cascading to loans) and Supabase's row limit. It's also tested on paging past that limit, the public view (no borrower details), and passing database errors on.
 - **Demo store failures:** corrupt, full or blocked browser storage, and two tabs saving at once.
 - **Open Library lookup**, including dropped connections; ISBNs, dates, overdue loans, and the CSV export (including spreadsheet formula defusing).
 
