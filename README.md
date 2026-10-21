@@ -40,6 +40,14 @@ npm test          # unit tests (Vitest)
 
 Every pull request runs lint, type-check, tests and a build in GitHub Actions (`.github/workflows/ci.yml`).
 
+**What the tests cover** (`npm test`):
+- **Storage contract** (`src/lib/store.contract.test.ts`): the demo store and the Supabase store pass the same suite.
+  - Add, edit and delete books (deleting a book removes its loans).
+  - Check out and check in, refusing a double checkout or a second check-in.
+  - The Supabase store runs against an in-memory fake client (`src/test/fakeSupabase.ts`) that mirrors the database rules. It's also tested on paging past 1,000 rows, the public view (no borrower details), and passing database errors on.
+- **Demo store failures:** corrupt, full or blocked browser storage, and two tabs saving at once.
+- **Open Library lookup**, including dropped connections; ISBNs, dates, overdue loans, and the CSV export (including spreadsheet formula defusing).
+
 Without Supabase settings the app runs in **demo mode**: sample books, saved only in that browser.
 
 ## Supabase setup (one time)
