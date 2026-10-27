@@ -288,7 +288,7 @@ export default function BookPage() {
       </p>
       <div className="book-layout">
         <div className={`book-hero${stamp ? ' thunk' : ''}${justAdded ? ' just-added' : ''}`} key={stamp?.key}>
-          <BookCover title={book.title} color={book.coverColor} pattern={book.coverPattern} size={220} />
+          <BookCover title={book.title} author={book.author} genre={book.genre} color={book.coverColor} pattern={book.coverPattern} size={220} />
           {shownStamp && <Stamp kind={shownStamp} date={stamp ? stamp.date : loan?.loanedOn} animate={Boolean(stamp)} />}
           {stamp && (
             <span className="ink-sparks" aria-hidden="true">

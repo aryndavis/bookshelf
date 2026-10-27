@@ -2,6 +2,7 @@ import { Link, NavLink, Outlet } from 'react-router-dom'
 import { config } from '../config'
 import { useLibrary } from '../state/LibraryContext'
 import BookCover from './BookCover'
+import GenreKey from './GenreKey'
 import { isOverdue } from '../lib/loans'
 
 export default function Layout() {
@@ -29,7 +30,7 @@ export default function Layout() {
       )}
       <header className="site-header">
         <Link to="/" className="logo">
-          <BookCover title="L" color="pink" pattern="hearts" size={34} />
+          <BookCover title="" color="pink" pattern="hearts" size={34} />
           <span>{config.libraryName}</span>
         </Link>
         <nav className="main-nav" aria-label="Main">
@@ -61,6 +62,7 @@ export default function Layout() {
       <main id="main" tabIndex={-1}>
         <Outlet />
       </main>
+      <GenreKey />
       <footer className="site-footer">
         <span>✦ {config.libraryName} ✦ please return books in the condition you found them ✦</span>
       </footer>

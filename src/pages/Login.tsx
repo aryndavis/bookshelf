@@ -29,9 +29,9 @@ export default function Login({ embedded = false, reason }: { embedded?: boolean
   return (
     <Wrapper className={`login-page${embedded ? ' embedded' : ''}`} id={embedded ? undefined : 'main'}>
       <div className="login-books" aria-hidden="true">
-        <BookCover title="L" color="pink" pattern="hearts" size={70} />
-        <BookCover title="I" color="mint" pattern="dots" size={70} />
-        <BookCover title="B" color="lilac" pattern="stars" size={70} />
+        <BookCover title="" genre="Children’s" color="pink" pattern="hearts" size={70} />
+        <BookCover title="" genre="Fantasy" color="mint" pattern="dots" size={70} />
+        <BookCover title="" genre="Mystery" color="lilac" pattern="stars" size={70} />
       </div>
       <Panel title="library_card.exe" tone="yellow" className="login-panel" labelledBy="login-title">
         <h1 id="login-title">{config.libraryName}</h1>

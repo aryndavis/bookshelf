@@ -279,7 +279,7 @@ function BookFormInner({ existing }: { existing?: Book }) {
                 {COVER_PATTERNS.map((pattern: CoverPattern) => (
                   <label key={pattern} className="pattern-option">
                     <input type="radio" name="pattern" value={pattern} checked={draft.coverPattern === pattern} onChange={() => set('coverPattern', pattern)} />
-                    <BookCover title={draft.title || '?'} color={draft.coverColor} pattern={pattern} size={36} />
+                    <BookCover title={draft.title || '?'} genre={draft.genre} color={draft.coverColor} pattern={pattern} size={36} />
                     <span>{pattern}</span>
                   </label>
                 ))}
@@ -313,7 +313,7 @@ function BookFormInner({ existing }: { existing?: Book }) {
 
         <aside className="preview" aria-label="Cover preview">
           <div className="preview-stage">
-            <BookCover title={draft.title || '?'} color={draft.coverColor} pattern={draft.coverPattern} size={190} />
+            <BookCover title={draft.title || 'Untitled'} author={draft.author} genre={draft.genre} color={draft.coverColor} pattern={draft.coverPattern} size={190} />
           </div>
           <p className="preview-title">{draft.title || 'Untitled'}</p>
           {draft.author && <p className="preview-author">{draft.author}</p>}

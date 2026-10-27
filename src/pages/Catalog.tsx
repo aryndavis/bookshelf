@@ -119,7 +119,7 @@ export default function Catalog() {
               {arrivals.map((book) => (
                 <li key={book.id}>
                   <Link to={`/book/${book.id}`} className="arrival">
-                    <BookCover title={book.title} color={book.coverColor} pattern={book.coverPattern} size={84} />
+                    <BookCover title={book.title} author={book.author} genre={book.genre} color={book.coverColor} pattern={book.coverPattern} size={84} />
                     <span className="sr-only">{book.title}</span>
                     <span className="new-tag" aria-hidden="true">
                       new!
