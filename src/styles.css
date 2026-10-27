@@ -1138,6 +1138,51 @@ legend {
   text-transform: uppercase;
 }
 
+/* ---------- Borrowing ---------- */
+
+.borrowing-layout {
+  display: grid;
+  grid-template-columns: minmax(min(100%, 340px), 400px) 1fr;
+  align-items: start;
+  gap: 30px;
+  margin: 0 0 48px;
+}
+
+.borrowing-layout .borrower-grid {
+  margin: 0;
+}
+
+@media (max-width: 820px) {
+  .borrowing-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.borrow-form .added-note {
+  margin: 14px 0 0;
+}
+
+.borrowed-title {
+  font: 600 15px var(--pixel);
+}
+
+.borrower-books .borrowed-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.pixel-button.small {
+  padding: 4px 10px;
+  font-size: 13px;
+}
+
+.borrower-books .form-error {
+  margin: 6px 0 0;
+  font: 600 14px var(--sans);
+}
+
 /* ---------- Login & loading ---------- */
 
 .login-page,

@@ -6,7 +6,7 @@ import { plural } from '../lib/dates'
 import { useLibrary } from '../state/LibraryContext'
 
 export default function Backup() {
-  const { mode, books, loans, userEmail, signOut } = useLibrary()
+  const { mode, books, loans, borrowings, userEmail, signOut } = useLibrary()
   const [confirmReset, setConfirmReset] = useState(false)
 
   return (
@@ -14,7 +14,7 @@ export default function Backup() {
       <section className="hero" aria-labelledby="backup-title">
         <h1 id="backup-title">Backup & account</h1>
         <p className="hero-sub">
-          {plural(books.length, 'book')} and {plural(loans.length, 'loan')} on record.
+          {plural(books.length, 'book')}, {plural(loans.length, 'loan')} and {plural(borrowings?.length ?? 0, 'borrowed book')} on record.
         </p>
       </section>
 
@@ -26,7 +26,7 @@ export default function Backup() {
             <button type="button" className="pixel-button" onClick={() => downloadCsv(books, loans)}>
               Catalog spreadsheet (.csv)
             </button>
-            <button type="button" className="pixel-button secondary" onClick={() => downloadJson(books, loans)}>
+            <button type="button" className="pixel-button secondary" onClick={() => downloadJson(books, loans, borrowings ?? [])}>
               Full backup (.json)
             </button>
           </div>

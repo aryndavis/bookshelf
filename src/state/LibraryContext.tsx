@@ -2,7 +2,7 @@ import type { Session } from '@supabase/supabase-js'
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { demoStore, STORAGE_KEY } from '../lib/demoStore'
 import { supabase, supabaseStore } from '../lib/supabase'
-import type { Book, BookInput, Loan, LoanInput } from '../lib/types'
+import type { Book, BookInput, Borrowing, BorrowingInput, Loan, LoanInput } from '../lib/types'
 
 // 'signed-out' only happens when the public view isn't set up (supabase/public-view.sql not run yet):
 // then the app falls back to asking for a login before showing anything.
@@ -20,6 +20,8 @@ interface LibraryValue {
   loans: Loan[]
   /** The open loan for each checked-out book, keyed by book id. */
   activeLoans: Map<string, Loan>
+  /** Books you're borrowing from others (owner only). Null until supabase/borrowing.sql is run. */
+  borrowings: Borrowing[] | null
   reload: () => void
   signIn: (email: string, password: string) => Promise<void>
   signOut: () => Promise<void>
@@ -28,6 +30,9 @@ interface LibraryValue {
   deleteBook: (id: string) => Promise<void>
   checkOut: (bookId: string, input: LoanInput) => Promise<Loan>
   returnLoan: (loanId: string, returnedOn: string) => Promise<Loan>
+  addBorrowing: (input: BorrowingInput) => Promise<Borrowing>
+  giveBack: (borrowingId: string, returnedOn: string) => Promise<Borrowing>
+  deleteBorrowing: (borrowingId: string) => Promise<void>
 }
 
 const LibraryContext = createContext<LibraryValue | null>(null)
@@ -41,6 +46,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null)
   const [books, setBooks] = useState<Book[]>([])
   const [loans, setLoans] = useState<Loan[]>([])
+  const [borrowings, setBorrowings] = useState<Borrowing[] | null>([])
 
   // Bumped on every load and on sign-out, so a slow response can't land after the user has changed.
   const loadRun = useRef(0)
@@ -61,6 +67,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         loadRun.current++
         setBooks([])
         setLoans([])
+        setBorrowings([])
         setError(null)
         setStatus('loading')
       }
@@ -85,6 +92,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
         if (run !== loadRun.current) return
         setBooks(data.books)
         setLoans(data.loans)
+        setBorrowings(data.borrowings)
         setStatus('ready')
       })
       .catch((e: Error) => {
@@ -93,6 +101,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
           // The public view isn't set up yet, so ask for a login like before.
           setBooks([])
           setLoans([])
+          setBorrowings([])
           return setStatus('signed-out')
         }
         setError(e.message)
@@ -113,6 +122,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
           if (run !== loadRun.current) return
           setBooks(data.books)
           setLoans(data.loans)
+          setBorrowings(data.borrowings)
         })
         .catch(() => {
           // Keep showing what we have; the next change or reload will pick up the latest copy.
@@ -152,6 +162,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     books,
     loans,
     activeLoans,
+    borrowings,
     reload: () => {
       setError(null)
       setStatus('loading')
@@ -176,6 +187,10 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       }),
     checkOut: (bookId, input) => commit(store.checkOut(bookId, input), (loan) => setLoans((list) => [loan, ...list])),
     returnLoan: (loanId, returnedOn) => commit(store.returnLoan(loanId, returnedOn), (loan) => setLoans((list) => list.map((l) => (l.id === loanId ? loan : l)))),
+    addBorrowing: (input) => commit(store.addBorrowing(input), (b) => setBorrowings((list) => [b, ...(list ?? [])])),
+    giveBack: (borrowingId, returnedOn) =>
+      commit(store.giveBack(borrowingId, returnedOn), (b) => setBorrowings((list) => list?.map((x) => (x.id === borrowingId ? b : x)) ?? null)),
+    deleteBorrowing: (borrowingId) => commit(store.deleteBorrowing(borrowingId), () => setBorrowings((list) => list?.filter((x) => x.id !== borrowingId) ?? null)),
   }
 
   return <LibraryContext.Provider value={value}>{children}</LibraryContext.Provider>

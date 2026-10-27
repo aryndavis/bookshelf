@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
-import type { Book, BookInput, LibraryStore, Loan, LoanInput } from './types'
+import type { Book, BookInput, Borrowing, BorrowingInput, LibraryStore, Loan, LoanInput } from './types'
 
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined
 const key = (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? import.meta.env.VITE_SUPABASE_ANON_KEY) as string | undefined
@@ -37,8 +37,23 @@ type LoanRow = {
   created_at: string
 }
 
+type BorrowingRow = {
+  id: string
+  title: string
+  author: string
+  lender: string
+  borrowed_on: string
+  due_on: string | null
+  returned_on: string | null
+  cover_color: Borrowing['coverColor']
+  cover_pattern: Borrowing['coverPattern']
+  notes: string
+  created_at: string
+}
+
 const bookColumns = 'id,title,author,isbn,genre,year,pages,cover_color,cover_pattern,notes,acquired_on,created_at'
 const loanColumns = 'id,book_id,borrower,contact,loaned_on,due_on,returned_on,notes,created_at'
+const borrowingColumns = 'id,title,author,lender,borrowed_on,due_on,returned_on,cover_color,cover_pattern,notes,created_at'
 
 const fromBookRow = (r: BookRow): Book => ({
   id: r.id,
@@ -80,6 +95,34 @@ const fromLoanRow = (r: LoanRow): Loan => ({
   createdAt: r.created_at,
 })
 
+const fromBorrowingRow = (r: BorrowingRow): Borrowing => ({
+  id: r.id,
+  title: r.title,
+  author: r.author,
+  lender: r.lender,
+  borrowedOn: r.borrowed_on,
+  dueOn: r.due_on,
+  returnedOn: r.returned_on,
+  coverColor: r.cover_color,
+  coverPattern: r.cover_pattern,
+  notes: r.notes,
+  createdAt: r.created_at,
+})
+
+const toBorrowingRow = (b: BorrowingInput) => ({
+  title: b.title,
+  author: b.author,
+  lender: b.lender,
+  borrowed_on: b.borrowedOn,
+  due_on: b.dueOn,
+  cover_color: b.coverColor,
+  cover_pattern: b.coverPattern,
+  notes: b.notes,
+})
+
+// What Supabase answers when a table doesn't exist (PostgREST's code, then Postgres's own).
+const MISSING_TABLE = new Set(['PGRST205', '42P01'])
+
 const friendly = (error: { message: string; code?: string }) => {
   if (error.code === '23505') return new Error('That book is already checked out.')
   return new Error(error.message)
@@ -97,21 +140,32 @@ async function selectAll<Row>(client: SupabaseClient, table: string, columns: st
       .order(newestFirst, { ascending: false })
       .order('id') // tie-breaker so pages don't overlap or skip rows
       .range(rows.length, rows.length + PAGE_SIZE - 1)
-    if (error) throw friendly(error)
+    if (error) throw Object.assign(friendly(error), { code: error.code })
     rows.push(...(data as unknown as Row[]))
     // Stop on the total, not on a short page: the project's "Max rows" setting can make every page shorter than PAGE_SIZE.
     if (data.length === 0 || rows.length >= (count ?? 0)) return rows
   }
 }
 
+/** Borrowings, or null if supabase/borrowing.sql hasn't been run yet (the rest of the library still loads). */
+async function loadBorrowings(client: SupabaseClient) {
+  try {
+    return (await selectAll<BorrowingRow>(client, 'borrowings', borrowingColumns, 'borrowed_on')).map(fromBorrowingRow)
+  } catch (e) {
+    if (MISSING_TABLE.has((e as { code?: string }).code ?? '')) return null
+    throw e
+  }
+}
+
 export function supabaseStore(client: SupabaseClient): LibraryStore {
   return {
     async load() {
-      const [books, loans] = await Promise.all([
+      const [books, loans, borrowings] = await Promise.all([
         selectAll<BookRow>(client, 'books', bookColumns, 'created_at'),
         selectAll<LoanRow>(client, 'loans', loanColumns, 'loaned_on'),
+        loadBorrowings(client),
       ])
-      return { books: books.map(fromBookRow), loans: loans.map(fromLoanRow) }
+      return { books: books.map(fromBookRow), loans: loans.map(fromLoanRow), borrowings }
     },
     async loadPublic() {
       const [books, out] = await Promise.all([selectAll<BookRow>(client, 'books', bookColumns, 'created_at'), client.rpc('checked_out_books')])
@@ -127,7 +181,7 @@ export function supabaseStore(client: SupabaseClient): LibraryStore {
         notes: '',
         createdAt: row.loaned_on,
       }))
-      return { books: books.map(fromBookRow), loans }
+      return { books: books.map(fromBookRow), loans, borrowings: [] }
     },
     async addBook(input) {
       const { data, error } = await client.from('books').insert(toBookRow(input)).select(bookColumns).single()
@@ -161,6 +215,27 @@ export function supabaseStore(client: SupabaseClient): LibraryStore {
       if (error) throw friendly(error)
       if (!data) throw new Error('That book was already checked back in.')
       return fromLoanRow(data as LoanRow)
+    },
+    async addBorrowing(input) {
+      const { data, error } = await client.from('borrowings').insert(toBorrowingRow(input)).select(borrowingColumns).single()
+      if (error) throw friendly(error)
+      return fromBorrowingRow(data as BorrowingRow)
+    },
+    async giveBack(borrowingId, returnedOn) {
+      const { data, error } = await client
+        .from('borrowings')
+        .update({ returned_on: returnedOn })
+        .eq('id', borrowingId)
+        .is('returned_on', null)
+        .select(borrowingColumns)
+        .maybeSingle()
+      if (error) throw friendly(error)
+      if (!data) throw new Error('That book was already given back.')
+      return fromBorrowingRow(data as BorrowingRow)
+    },
+    async deleteBorrowing(borrowingId) {
+      const { error } = await client.from('borrowings').delete().eq('id', borrowingId)
+      if (error) throw friendly(error)
     },
   }
 }

@@ -1,13 +1,13 @@
 // Conformance: the demo store (this browser's localStorage) and the Supabase store must behave the same,
 // so the app can swap them freely. The Supabase store runs against an in-memory fake client (src/test)
 // that mirrors supabase/schema.sql: one open loan per book, loans must point at a book, and deleting a
-// book deletes its loans.
+// book deletes its loans. Borrowings (supabase/borrowing.sql) are books lent to the owner.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeSupabase } from '../test/fakeSupabase'
 import { MemoryStorage } from '../test/memoryStorage'
 import { STORAGE_KEY, demoStore } from './demoStore'
 import { supabaseStore } from './supabase'
-import type { BookInput, LibraryStore } from './types'
+import type { BookInput, BorrowingInput, LibraryStore } from './types'
 
 const bookInput = (patch: Partial<BookInput> = {}): BookInput => ({
   title: 'Matilda',
@@ -23,6 +23,17 @@ const bookInput = (patch: Partial<BookInput> = {}): BookInput => ({
   ...patch,
 })
 const loanInput = { borrower: 'Sam', contact: '555-0100', loanedOn: '2026-10-18', dueOn: '2026-11-08', notes: '' }
+const borrowingInput = (patch: Partial<BorrowingInput> = {}): BorrowingInput => ({
+  title: 'Piranesi',
+  author: 'Susanna Clarke',
+  lender: 'Brooklyn Public Library',
+  borrowedOn: '2026-10-20',
+  dueOn: '2026-11-10',
+  coverColor: 'navy',
+  coverPattern: 'stars',
+  notes: 'renewed once',
+  ...patch,
+})
 
 function libraryDatabase({ maxRows }: { maxRows?: number } = {}) {
   return fakeSupabase({
@@ -48,7 +59,7 @@ const implementations: [string, () => LibraryStore][] = [
   [
     'demo store',
     () => {
-      storage.setItem(STORAGE_KEY, JSON.stringify({ books: [], loans: [] })) // start from an empty library
+      storage.setItem(STORAGE_KEY, JSON.stringify({ books: [], loans: [], borrowings: [] })) // start from an empty library
       return demoStore()
     },
   ],
@@ -62,7 +73,7 @@ describe.each(implementations)('%s', (_name, makeStore) => {
   })
 
   it('starts empty', async () => {
-    expect(await store.load()).toEqual({ books: [], loans: [] })
+    expect(await store.load()).toEqual({ books: [], loans: [], borrowings: [] })
   })
 
   it('adds a book and loads it back with every field intact', async () => {
@@ -131,6 +142,29 @@ describe.each(implementations)('%s', (_name, makeStore) => {
   it('refuses to edit a book that does not exist', async () => {
     await expect(store.updateBook('no-such-book', bookInput())).rejects.toThrow()
   })
+
+  it('adds a borrowed book and loads it back with every field intact, apart from the catalog', async () => {
+    const added = await store.addBorrowing(borrowingInput())
+    const data = await store.load()
+    expect(added).toMatchObject({ ...borrowingInput(), returnedOn: null })
+    expect(added.id).toBeTruthy()
+    expect(data.borrowings).toEqual([added])
+    expect(data.books).toEqual([])
+  })
+
+  it('gives a borrowed book back once, and refuses a second time', async () => {
+    const borrowing = await store.addBorrowing(borrowingInput())
+    expect(await store.giveBack(borrowing.id, '2026-11-01')).toMatchObject({ id: borrowing.id, returnedOn: '2026-11-01' })
+    await expect(store.giveBack(borrowing.id, '2026-11-05')).rejects.toThrow('That book was already given back.')
+    expect((await store.load()).borrowings?.[0].returnedOn).toBe('2026-11-01')
+  })
+
+  it('removes a borrowed book added by mistake, and only that one', async () => {
+    const keep = await store.addBorrowing(borrowingInput({ title: 'Kindred', lender: 'Maya' }))
+    const mistake = await store.addBorrowing(borrowingInput())
+    await store.deleteBorrowing(mistake.id)
+    expect((await store.load()).borrowings?.map((b) => b.id)).toEqual([keep.id])
+  })
 })
 
 describe('Supabase store: beyond the shared contract', () => {
@@ -162,6 +196,31 @@ describe('Supabase store: beyond the shared contract', () => {
     expect(loans).toEqual([expect.objectContaining({ bookId: 'b1', borrower: '', contact: '', notes: '', loanedOn: '2026-10-18', dueOn: '2026-11-08', returnedOn: null })])
   })
 
+  it('the public view never includes what the owner is borrowing', async () => {
+    const db = libraryDatabase()
+    db.tables.set('borrowings', [{ id: 'x', title: 'Piranesi', lender: 'Maya' }])
+    expect((await supabaseStore(db.client).loadPublic!()).borrowings).toEqual([])
+  })
+
+  it.each([
+    ['PGRST205', 'Could not find the table \'public.borrowings\' in the schema cache'],
+    ['42P01', 'relation "public.borrowings" does not exist'],
+  ])('still loads the library before borrowing.sql is run (%s), with borrowings marked not set up', async (code, message) => {
+    const db = libraryDatabase()
+    const store = supabaseStore(db.client)
+    await store.addBook(bookInput())
+    db.failNext('borrowings', 'select', { message, code })
+    const data = await store.load()
+    expect(data.books).toHaveLength(1)
+    expect(data.borrowings).toBeNull()
+  })
+
+  it('other borrowing errors still fail the load', async () => {
+    const db = libraryDatabase()
+    db.failNext('borrowings', 'select', { message: 'JWT expired', code: 'PGRST301' })
+    await expect(supabaseStore(db.client).load()).rejects.toThrow('JWT expired')
+  })
+
   it('passes database errors on instead of pretending it worked', async () => {
     const db = libraryDatabase()
     const store = supabaseStore(db.client)
@@ -176,9 +235,18 @@ describe('Supabase store: beyond the shared contract', () => {
 
 describe('demo store: when browser storage misbehaves', () => {
   it('starts with sample books when nothing is saved yet', async () => {
-    const { books, loans } = await demoStore().load()
+    const { books, loans, borrowings } = await demoStore().load()
     expect(books).toHaveLength(6)
     expect(loans.length).toBeGreaterThan(0)
+    expect(borrowings?.length).toBeGreaterThan(0)
+  })
+
+  it('keeps a library saved before borrowing existed, with no borrowings yet', async () => {
+    storage.setItem(STORAGE_KEY, JSON.stringify({ books: [], loans: [] }))
+    const store = demoStore()
+    expect((await store.load()).borrowings).toEqual([])
+    const added = await store.addBorrowing(borrowingInput())
+    expect((await store.load()).borrowings).toEqual([added])
   })
 
   it('recovers with sample books instead of crashing when the saved data is corrupt', async () => {

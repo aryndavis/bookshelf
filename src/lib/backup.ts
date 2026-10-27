@@ -1,5 +1,5 @@
 import { today } from './dates'
-import type { Book, Loan } from './types'
+import type { Book, Borrowing, Loan } from './types'
 
 function download(filename: string, type: string, content: string) {
   const url = URL.createObjectURL(new Blob([content], { type }))
@@ -10,8 +10,8 @@ function download(filename: string, type: string, content: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
-export function downloadJson(books: Book[], loans: Loan[]) {
-  download(`library-backup-${today()}.json`, 'application/json', JSON.stringify({ exportedAt: new Date().toISOString(), books, loans }, null, 2))
+export function downloadJson(books: Book[], loans: Loan[], borrowings: Borrowing[]) {
+  download(`library-backup-${today()}.json`, 'application/json', JSON.stringify({ exportedAt: new Date().toISOString(), books, loans, borrowings }, null, 2))
 }
 
 // Quote every cell, and defuse values that spreadsheet apps would run as formulas.

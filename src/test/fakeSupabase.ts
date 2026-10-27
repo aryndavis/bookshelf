@@ -19,7 +19,7 @@ export function fakeSupabase(
 ) {
   const tables = new Map<string, Row[]>()
   const files = new Map<string, Blob>()
-  const failures: { table: string; op: Op; message: string; after: number }[] = []
+  const failures: { table: string; op: Op; message: string; code?: string; after: number }[] = []
   const rowsOf = (table: string) => {
     if (!tables.has(table)) tables.set(table, [])
     return tables.get(table)!
@@ -33,7 +33,7 @@ export function fakeSupabase(
       return null
     }
     failures.splice(index, 1)
-    return failure.message
+    return { message: failure.message, code: failure.code }
   }
 
   function query(table: string) {
@@ -50,7 +50,7 @@ export function fakeSupabase(
 
     const run = (): Result => {
       const failure = takeFailure(table, op)
-      if (failure) return { data: null, error: { message: failure } }
+      if (failure) return { data: null, error: failure }
       const rows = rowsOf(table)
       const matches = rows.filter((row) => filters.every((f) => f(row)))
       let out: Row[]
@@ -150,7 +150,7 @@ export function fakeSupabase(
     from: (table: string) => query(table),
     rpc: async (name: string) => {
       const failure = takeFailure(name, 'select')
-      return failure ? { data: null, error: { message: failure } } : { data: rowsOf(`rpc:${name}`), error: null }
+      return failure ? { data: null, error: failure } : { data: rowsOf(`rpc:${name}`), error: null }
     },
     auth: {
       getSession: async () => ({ data: { session: options.userId ? { user: { id: options.userId } } : null }, error: null }),
@@ -159,7 +159,7 @@ export function fakeSupabase(
       from: () => ({
         upload: async (path: string, blob: Blob) => {
           const failure = takeFailure('storage', 'upload')
-          if (failure) return { data: null, error: { message: failure } }
+          if (failure) return { data: null, error: failure }
           files.set(path, blob)
           return { data: { path }, error: null }
         },
@@ -179,9 +179,9 @@ export function fakeSupabase(
     client: client as unknown as SupabaseClient,
     tables,
     files,
-    /** Makes a call of this kind fail with the given message, after letting `after` such calls succeed. */
-    failNext(table: string, op: Op, { message = 'simulated failure', after = 0 }: { message?: string; after?: number } = {}) {
-      failures.push({ table, op, message, after })
+    /** Makes a call of this kind fail with the given message (and Postgres/PostgREST code), after letting `after` such calls succeed. */
+    failNext(table: string, op: Op, { message = 'simulated failure', code, after = 0 }: { message?: string; code?: string; after?: number } = {}) {
+      failures.push({ table, op, message, code, after })
     },
   }
 }
