@@ -158,12 +158,18 @@ async function selectAll<Row>(client: SupabaseClient, table: string, columns: st
   }
 }
 
-/** Every book, without reading statuses if supabase/update-2026-10.sql hasn't been run yet. */
-async function loadBooks(client: SupabaseClient) {
+/**
+ * Every book, without reading statuses if supabase/update-2026-10.sql hasn't been run yet. `beforeUpdate` is
+ * then set, so saves leave the column out too and editing keeps working until the update is run.
+ */
+async function loadBooks(client: SupabaseClient, schema: { beforeUpdate: boolean }) {
   try {
-    return await selectAll<BookRow>(client, 'books', bookColumns, 'created_at')
+    const rows = await selectAll<BookRow>(client, 'books', bookColumns, 'created_at')
+    schema.beforeUpdate = false
+    return rows
   } catch (e) {
     if (!MISSING_COLUMN.has((e as { code?: string }).code ?? '')) throw e
+    schema.beforeUpdate = true
     return selectAll<BookRow>(client, 'books', bookColumnsBeforeUpdate, 'created_at')
   }
 }
@@ -179,17 +185,25 @@ async function loadBorrowings(client: SupabaseClient) {
 }
 
 export function supabaseStore(client: SupabaseClient): LibraryStore {
+  const schema = { beforeUpdate: false }
+  const bookRow = (input: BookInput) => {
+    const row = toBookRow(input)
+    if (!schema.beforeUpdate) return row
+    const { reading_status: _, ...older } = row
+    return older
+  }
+  const columns = () => (schema.beforeUpdate ? bookColumnsBeforeUpdate : bookColumns)
   return {
     async load() {
       const [books, loans, borrowings] = await Promise.all([
-        loadBooks(client),
+        loadBooks(client, schema),
         selectAll<LoanRow>(client, 'loans', loanColumns, 'loaned_on'),
         loadBorrowings(client),
       ])
       return { books: books.map(fromBookRow), loans: loans.map(fromLoanRow), borrowings }
     },
     async loadPublic() {
-      const [books, out] = await Promise.all([loadBooks(client), client.rpc('checked_out_books')])
+      const [books, out] = await Promise.all([loadBooks(client, schema), client.rpc('checked_out_books')])
       if (out.error) throw friendly(out.error)
       const loans = (out.data as { book_id: string; loaned_on: string; due_on: string | null }[]).map((row): Loan => ({
         id: `public-${row.book_id}`,
@@ -205,14 +219,14 @@ export function supabaseStore(client: SupabaseClient): LibraryStore {
       return { books: books.map(fromBookRow), loans, borrowings: [] }
     },
     async addBook(input) {
-      const { data, error } = await client.from('books').insert(toBookRow(input)).select(bookColumns).single()
+      const { data, error } = await client.from('books').insert(bookRow(input)).select(columns()).single()
       if (error) throw friendly(error)
-      return fromBookRow(data as BookRow)
+      return fromBookRow(data as unknown as BookRow)
     },
     async updateBook(id, input) {
-      const { data, error } = await client.from('books').update(toBookRow(input)).eq('id', id).select(bookColumns).single()
+      const { data, error } = await client.from('books').update(bookRow(input)).eq('id', id).select(columns()).single()
       if (error) throw friendly(error)
-      return fromBookRow(data as BookRow)
+      return fromBookRow(data as unknown as BookRow)
     },
     async deleteBook(id) {
       const { error } = await client.from('books').delete().eq('id', id)

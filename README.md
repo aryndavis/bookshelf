@@ -7,7 +7,7 @@ A cozy, pixel-art catalog for my physical book collection. It keeps track of eve
 - **Book catalog:** every book as a cute pixel cover, with search, filters (on the shelf, checked out, overdue) and sorting.
 - **New arrivals shelf:** books added in the last 45 days, plus a quick “add a book you just bought” slot.
 - **Add books fast:** type an ISBN to fill in the title, author, genre, year and pages from [Open Library](https://openlibrary.org). Then pick a cover color and pattern (or hit **Surprise me**) and watch the preview update. Use **Add & start another** to enter a whole stack.
-- **Details filled in for you:** save a book with the genre, year or pages left blank and they're looked up on Open Library (by ISBN, or by title and author). **Fill in missing details** on the Backup page does the same for books already in the library. Anything you typed is kept.
+- **Details filled in for you:** add a book with the genre, year or pages left blank and they're looked up on Open Library (by ISBN, then by title and author). **Fill in missing details** on the Backup page does the same for books already in the library. Anything you typed is kept.
 - **Reading status:** mark each book **Read**, **Reading** or **To be read** with one tap on its page, and filter the catalog by it. New books start as To be read.
 - **Lending:** check a book out to someone with an optional due date. A rubber stamp slams onto the cover, and **RETURNED** stamps it when it comes back. Every book has an old-school pocket library card showing its loan history.
 - **Who has what:** a card for each person who has books, with how long they’ve had them; overdue books come first. Below it is a log of past returns.

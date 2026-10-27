@@ -1,7 +1,8 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Panel from '../components/Panel'
 import { downloadCsv, downloadJson } from '../lib/backup'
-import { fillBlanks, hasBlanks, lookupBook, lookupQuery } from '../lib/openLibrary'
+import { toBookInput } from '../lib/books'
+import { fillBlanks, hasBlanks, lookupDetails } from '../lib/openLibrary'
 import { resetDemo } from '../lib/demoStore'
 import { plural } from '../lib/dates'
 import { useLibrary } from '../state/LibraryContext'
@@ -12,29 +13,49 @@ const PAUSE_MS = 400
 /** Looks up every book with a blank genre, year or pages and fills in what Open Library knows. */
 function FillDetails() {
   const { books, updateBook } = useLibrary()
-  const [progress, setProgress] = useState<{ done: number; total: number; filled: number; running: boolean } | null>(null)
+  const [progress, setProgress] = useState<{ done: number; total: number; filled: number; running: boolean; error?: string } | null>(null)
   const stopped = useRef(false)
+  // Each save starts from the book as it is now, so an edit made while this runs isn't undone.
+  const latest = useRef(books)
+  useEffect(() => {
+    latest.current = books
+  }, [books])
+  // Leaving the page stops the run.
+  useEffect(
+    () => () => {
+      stopped.current = true
+    },
+    [],
+  )
   const missing = books.filter(hasBlanks)
 
   const run = async () => {
     stopped.current = false
-    const queue = [...missing]
+    const queue = missing.map((b) => b.id)
     let filled = 0
     setProgress({ done: 0, total: queue.length, filled, running: true })
-    for (const [i, book] of queue.entries()) {
+    for (const [i, id] of queue.entries()) {
       if (stopped.current) break
+      let found = null
       try {
-        const found = await lookupBook(lookupQuery(book), AbortSignal.timeout(10000))
-        const next = fillBlanks(book, found)
-        if (next.genre !== book.genre || next.year !== book.year || next.pages !== book.pages) {
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars -- id and createdAt aren't part of an edit.
-          const { id, createdAt, ...input } = next
-          await updateBook(book.id, input)
-          filled++
-        }
+        const book = latest.current.find((b) => b.id === id)
+        found = book && hasBlanks(book) ? await lookupDetails(book, AbortSignal.timeout(10000)) : null
       } catch {
-        // Skip this one (no answer, or the save failed) and keep going.
+        // No answer for this one; keep going.
       }
+      const book = latest.current.find((b) => b.id === id)
+      const next = book && fillBlanks(book, found)
+      if (book && next && (next.genre !== book.genre || next.year !== book.year || next.pages !== book.pages)) {
+        try {
+          await updateBook(id, toBookInput(next))
+          filled++
+        } catch (e) {
+          // A save failing (signed out, database not updated) will fail for the rest too, so stop and say why.
+          setProgress({ done: i, total: queue.length, filled, running: false, error: (e as Error).message })
+          return
+        }
+      }
+      if (stopped.current) break
       setProgress({ done: i + 1, total: queue.length, filled, running: true })
       await new Promise((resolve) => setTimeout(resolve, PAUSE_MS))
     }
@@ -51,9 +72,14 @@ function FillDetails() {
       </p>
       {progress && (
         <p className="hint" role="status">
-          {progress.running ? `Looked up ${progress.done} of ${progress.total}…` : `Looked up ${progress.done} of ${progress.total}.`}{' '}
-          Filled in {plural(progress.filled, 'book')}.
-          {!progress.running && progress.filled < progress.done && ' Open Library didn’t know the rest; fill them in by hand.'}
+          Looked up {progress.done} of {progress.total}
+          {progress.running ? '…' : '.'} Filled in {plural(progress.filled, 'book')}.
+          {!progress.running && !progress.error && progress.filled < progress.done && ' Open Library didn’t have the rest; fill them in by hand.'}
+        </p>
+      )}
+      {progress?.error && (
+        <p className="form-error" role="alert">
+          Couldn’t save: {progress.error}
         </p>
       )}
       {progress?.running ? (

@@ -4,6 +4,7 @@ import BookCover from '../components/BookCover'
 import NotInCatalog from '../components/NotInCatalog'
 import Stamp, { type StampKind } from '../components/Stamp'
 import { config } from '../config'
+import { toBookInput } from '../lib/books'
 import { addDays, daysBetween, formatDate, plural, stampDate, today } from '../lib/dates'
 import { isOverdue } from '../lib/loans'
 import { READING_LABELS } from '../lib/reading'
@@ -171,9 +172,7 @@ function ReadingStatusPicker({ book }: { book: Book }) {
     setBusy(true)
     setError(null)
     try {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars -- id and createdAt aren't part of an edit.
-      const { id, createdAt, ...input } = book
-      await updateBook(book.id, { ...input, readingStatus })
+      await updateBook(book.id, { ...toBookInput(book), readingStatus })
     } catch (e) {
       setError((e as Error).message)
     } finally {

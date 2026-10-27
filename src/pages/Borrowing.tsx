@@ -2,12 +2,13 @@ import { useMemo, useState, type FormEvent } from 'react'
 import BookCover from '../components/BookCover'
 import Panel from '../components/Panel'
 import { daysBetween, formatDate, plural, today } from '../lib/dates'
-import { isOverdue } from '../lib/loans'
+import { pick } from '../lib/books'
+import { groupByName, isOverdue } from '../lib/loans'
 import { COVER_COLORS, COVER_PATTERNS, type Borrowing } from '../lib/types'
 import { useLibrary } from '../state/LibraryContext'
 
-const tones = ['sky', 'lilac', 'mint', 'yellow', 'pink'] as const
-const pick = <T,>(list: readonly T[]) => list[Math.floor(Math.random() * list.length)]
+// Pink is kept for cards with something overdue.
+const tones = ['sky', 'lilac', 'mint', 'yellow'] as const
 
 function BorrowForm({ lenders }: { lenders: string[] }) {
   const { addBorrowing } = useLibrary()
@@ -207,17 +208,8 @@ export default function BorrowingPage() {
     return [...seen.values()]
   }, [all])
 
-  // Group what you have by who or where it's from (ignoring capitalization), overdue first.
-  const groups = new Map<string, { name: string; items: Borrowing[] }>()
-  for (const b of open) {
-    const key = b.lender.trim().toLowerCase()
-    const group = groups.get(key) ?? { name: b.lender.trim(), items: [] }
-    group.items.push(b)
-    groups.set(key, group)
-  }
-  const sources = [...groups.values()]
-    .map((g) => ({ ...g, items: g.items.sort((a, b) => a.borrowedOn.localeCompare(b.borrowedOn)), overdue: g.items.filter(isOverdue).length }))
-    .sort((a, b) => b.overdue - a.overdue || a.name.localeCompare(b.name))
+  // Group what you have by who or where it's from, overdue first.
+  const sources = groupByName(open, (b) => b.lender, (b) => b.borrowedOn)
 
   return (
     <>

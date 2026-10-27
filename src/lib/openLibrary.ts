@@ -18,14 +18,14 @@ export interface LookupResult {
 const GENRES: [string, RegExp][] = [
   ['Graphic Novel', /graphic novel|comic/],
   ['Poetry', /poetry|poems/],
-  ['Children’s', /juvenile|children's (fiction|stories|books|literature)/],
+  ['Children’s', /juvenile|children['’]s (fiction|stories|books|literature)/],
   ['Young Adult', /young adult/],
   ['Science Fiction', /science fiction|sci-fi/],
   ['Fantasy', /fantasy/],
   ['Horror', /horror/],
   ['Mystery', /mystery|detective/],
   ['Thriller', /thriller|suspense/],
-  ['Romance', /romance|love stories/],
+  ['Romance', /romance(?! languages)|love stories/],
   ['Historical Fiction', /historical fiction|fiction, historical/],
   ['Memoir', /memoir|autobiograph/],
   ['Biography', /biograph/],
@@ -33,17 +33,17 @@ const GENRES: [string, RegExp][] = [
   ['Wine', /\bwine/],
   ['Education', /education|teaching/],
   ['Self-Help', /self-help|self-actualization/],
-  ['Nature', /nature|natural history|ecology|botany|plants/],
+  ['Nature', /^nature\b|natural history|ecology|botany|^plants\b/],
   ['Technology', /artificial intelligence|computer|technology/],
-  ['Science', /\bscience\b|physics|biology|astronomy|chemistry/],
+  ['Politics', /politic/],
+  ['Science', /(?<!social |political )\bscience\b|physics|biology|astronomy|chemistry/],
   ['Psychology', /psychology/],
   ['Philosophy', /philosophy/],
-  ['Business', /business|economics|management/],
-  ['Politics', /politic/],
+  ['Business', /business|economics|^management\b/],
   ['History', /\bhistory\b/],
   ['Art', /\bart\b|photography/],
-  ['Travel', /travel/],
-  ['Classic', /classic/],
+  ['Travel', /^travel\b|travel writing|description and travel/],
+  ['Classic', /\bclassics?\b/],
 ]
 const GENERAL: [string, RegExp][] = [
   ['Nonfiction', /nonfiction|non-fiction/],
@@ -71,7 +71,13 @@ export function genreFrom(subjects: string[]): string {
 // The main title (before any subtitle) in letters and digits only, so "The Hobbit: or, There and Back Again"
 // matches "the hobbit" but "Survivor Song" doesn't match "Survivor".
 const mainTitle = (text: string) =>
-  text.split(':')[0].toLowerCase().normalize('NFD').replace(/[^a-z0-9]+/g, ' ').trim()
+  text
+    .split(':')[0]
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '') // accents: "Misérables" → "miserables"
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim()
 
 /**
  * Look up a book on Open Library (openlibrary.org) by ISBN, or else by title (and author, if known).
@@ -98,11 +104,15 @@ export async function lookupBook(query: { isbn: string } | { title: string; auth
   return {
     title: doc.title.slice(0, 300),
     author: Array.isArray(doc.author_name) ? doc.author_name.filter((a) => typeof a === 'string').join(' & ').slice(0, 300) : '',
-    genre: genreFrom(Array.isArray(doc.subject) ? doc.subject.filter((s): s is string => typeof s === 'string') : []),
-    year: typeof doc.first_publish_year === 'number' ? doc.first_publish_year : null,
-    pages: typeof doc.number_of_pages_median === 'number' ? doc.number_of_pages_median : null,
+    genre: genreFrom(Array.isArray(doc.subject) ? doc.subject.filter((s): s is string => typeof s === 'string') : []).slice(0, 80),
+    // The same ranges a typed year or page count must fit (and the database checks), so a junk value is dropped, not saved.
+    year: wholeNumberIn(doc.first_publish_year, 0, 3000),
+    pages: wholeNumberIn(doc.number_of_pages_median, 1, 100000),
   }
 }
+
+const wholeNumberIn = (value: unknown, min: number, max: number) =>
+  typeof value === 'number' && Number.isInteger(value) && value >= min && value <= max ? value : null
 
 /** Look up a book on Open Library by ISBN. Returns null if nothing is found. */
 export const lookupIsbn = (isbn: string) => lookupBook({ isbn })
@@ -110,11 +120,14 @@ export const lookupIsbn = (isbn: string) => lookupBook({ isbn })
 /** Fills in a book's blank genre, year and pages from a lookup, keeping anything already there. */
 export function fillBlanks<T extends { genre: string; year: number | null; pages: number | null }>(book: T, found: LookupResult | null): T {
   if (!found) return book
-  return { ...book, genre: book.genre || found.genre.slice(0, 80), year: book.year ?? found.year, pages: book.pages ?? found.pages }
+  return { ...book, genre: book.genre || found.genre, year: book.year ?? found.year, pages: book.pages ?? found.pages }
 }
 
 /** True when a lookup could add something: a blank genre, year or pages, and an ISBN or title to search with. */
 export const hasBlanks = (book: { genre: string; year: number | null; pages: number | null }) => !book.genre || book.year === null || book.pages === null
 
-/** How to search for a book: by ISBN if it has one, else by title and author. */
-export const lookupQuery = (book: { isbn: string | null; title: string; author: string }) => (book.isbn ? { isbn: book.isbn } : { title: book.title, author: book.author })
+/** Looks a book up by its ISBN, and by title and author if there's no ISBN or Open Library doesn't know it. */
+export async function lookupDetails(book: { isbn: string | null; title: string; author: string }, signal?: AbortSignal) {
+  const byIsbn = book.isbn ? await lookupBook({ isbn: book.isbn }, signal) : null
+  return byIsbn ?? lookupBook({ title: book.title, author: book.author }, signal)
+}

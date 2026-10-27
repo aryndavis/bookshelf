@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { fillBlanks, genreFrom, hasBlanks, lookupBook, lookupIsbn, normalizeIsbn } from './openLibrary'
+import { fillBlanks, genreFrom, hasBlanks, lookupBook, lookupDetails, lookupIsbn, normalizeIsbn } from './openLibrary'
 
 describe('normalizeIsbn', () => {
   it('accepts ISBN-10 and ISBN-13 with spaces or dashes', () => {
@@ -66,6 +66,14 @@ describe('genreFrom (subject lists as Open Library returns them)', () => {
     ['nonfiction about technology', ['Artificial intelligence', 'OpenAI', 'ChatGPT'], 'Technology'],
     ['plain fiction only when nothing else fits', ['Fiction', 'New York (N.Y.)'], 'Fiction'],
     ['nothing to go on', [], ''],
+    // Subjects that only look like a genre
+    ['time travel is not Travel', ['Fiction', 'Time travel', 'Science fiction'], 'Science Fiction'],
+    ['political science is Politics', ['Political science', 'Democracy'], 'Politics'],
+    ['human nature is not Nature', ['Human nature', 'Fiction'], 'Fiction'],
+    ['Romance languages are not Romance', ['Romance languages', 'Grammar'], ''],
+    ['time management is not Business', ['Time management', 'Self-help techniques'], 'Self-Help'],
+    ['classical antiquity is not Classic', ['Classical antiquity', 'History'], 'History'],
+    ['a curly apostrophe still counts', ['Children’s fiction'], 'Children’s'],
   ])('%s', (_case, subjects, genre) => {
     expect(genreFrom(subjects)).toBe(genre)
   })
@@ -85,6 +93,25 @@ describe('lookupBook by title', () => {
     expect(await lookupBook({ title: 'Empire of AI', author: 'Karen Hao' })).toMatchObject({ genre: 'Technology', year: 2025, pages: 496 })
     const url = fetch.mock.calls[0][0]
     expect([url.searchParams.get('title'), url.searchParams.get('author'), url.searchParams.get('isbn')]).toEqual(['Empire of AI', 'Karen Hao', null])
+  })
+
+  it('matches titles with or without accents, and titles in any alphabet', async () => {
+    respond({ docs: [{ title: 'Les Misérables' }] })
+    expect(await lookupBook({ title: 'Les Miserables', author: '' })).not.toBeNull()
+    respond({ docs: [{ title: 'Война и мир' }] })
+    expect(await lookupBook({ title: 'Война и мир', author: 'Лев Толстой' })).not.toBeNull()
+  })
+
+  it('drops a year or page count no typed value could have', async () => {
+    respond({ docs: [{ title: 'Odd', first_publish_year: 30000, number_of_pages_median: 0 }] })
+    expect(await lookupBook({ title: 'Odd', author: '' })).toMatchObject({ year: null, pages: null })
+  })
+
+  it('falls back to the title when Open Library does not know the ISBN', async () => {
+    const fetch = vi.fn(async (url: URL) => ({ ok: true, json: async () => ({ docs: url.searchParams.get('isbn') ? [] : [{ title: 'Kindred', first_publish_year: 1979 }] }) }))
+    vi.stubGlobal('fetch', fetch)
+    expect(await lookupDetails({ isbn: '9780807083697', title: 'Kindred', author: 'Octavia E. Butler' })).toMatchObject({ year: 1979 })
+    expect(fetch).toHaveBeenCalledTimes(2)
   })
 
   it('accepts a subtitle and different punctuation, but not a different book', async () => {

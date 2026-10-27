@@ -197,9 +197,10 @@ describe('Supabase store: beyond the shared contract', () => {
     expect(loans).toEqual([expect.objectContaining({ bookId: 'b1', borrower: '', contact: '', notes: '', loanedOn: '2026-10-18', dueOn: '2026-11-08', returnedOn: null })])
   })
 
-  it('the public view never includes what the owner is borrowing', async () => {
+  it('the public view never asks for what the owner is borrowing', async () => {
     const db = libraryDatabase()
-    db.tables.set('borrowings', [{ id: 'x', title: 'Piranesi', lender: 'Maya' }])
+    // Reading borrowings would fail here; the public view must not try.
+    db.failNext('borrowings', 'select', { message: 'permission denied for table borrowings', code: '42501' })
     expect((await supabaseStore(db.client).loadPublic!()).borrowings).toEqual([])
   })
 
@@ -209,6 +210,15 @@ describe('Supabase store: beyond the shared contract', () => {
     db.failNext('books', 'select', { message: 'column books.reading_status does not exist', code: '42703' })
     const { books } = await supabaseStore(db.client).load()
     expect(books).toEqual([expect.objectContaining({ title: 'Matilda', readingStatus: null })])
+  })
+
+  it('keeps saving books before the update adds the column, leaving the reading status out', async () => {
+    const db = libraryDatabase()
+    const store = supabaseStore(db.client)
+    db.failNext('books', 'select', { message: 'column books.reading_status does not exist', code: '42703' })
+    await store.load()
+    await store.addBook(bookInput())
+    expect(db.tables.get('books')?.[0]).not.toHaveProperty('reading_status')
   })
 
   it('explains what to run when saving needs the reading status column', async () => {
