@@ -5,7 +5,7 @@ Live at **[library.arynlynn.com](https://library.arynlynn.com)**.
 A cozy, pixel-art catalog for my physical book collection. It keeps track of every book I own, which ones I’ve lent out, who has them, and for how long.
 
 - **Book catalog:** every book as a cute pixel cover with a little icon for its genre, its title and the author's last name, plus search, filters (on the shelf, checked out, overdue) and sorting. Long titles drop the subtitle, wrap to three lines and end with “…”.
-- **Genre key:** the **✦ Genre key** bookmark on the edge of every page opens a key to the icons, with how many of your books are in each genre. A genre that isn't on the list gets the open book.
+- **Genre key:** the **Genre key** bookmark (with a tassel) beside the “All books” heading opens a key to the icons, with how many of your books are in each genre. A genre that isn't on the list gets the open book.
 - **New arrivals shelf:** books added in the last 45 days, plus a quick “add a book you just bought” slot.
 - **Add books fast:** type an ISBN to fill in the title, author, genre, year and pages from [Open Library](https://openlibrary.org). Then pick a cover color and pattern (or hit **Surprise me**) and watch the preview update. Use **Add & start another** to enter a whole stack.
 - **Details filled in for you:** add a book with the genre, year or pages left blank and they're looked up on Open Library (by ISBN, then by title and author). **Fill in missing details** on the Backup page does the same for books already in the library. Anything you typed is kept.

@@ -4,7 +4,7 @@ import { COVER_COLORS } from '../lib/types'
 import { useLibrary } from '../state/LibraryContext'
 import BookCover from './BookCover'
 
-/** A bookmark on the edge of the page that opens a key to the genre icons on the covers. */
+/** A bookmark lying beside the catalog heading that opens a key to the genre icons on the covers. */
 export default function GenreKey() {
   const { books } = useLibrary()
   const [open, setOpen] = useState(false)
@@ -45,7 +45,7 @@ export default function GenreKey() {
   }, [open])
 
   return (
-    <>
+    <div className="genre-key-spot">
       <button ref={bookmark} type="button" className="genre-bookmark" aria-expanded={open} aria-controls={panelId} onClick={() => setOpen((o) => !o)}>
         <span className="bookmark-ribbon">
           <svg className="bookmark-heart" viewBox="0 0 7 6" width="14" height="12" shapeRendering="crispEdges" aria-hidden="true">
@@ -105,6 +105,6 @@ export default function GenreKey() {
           </div>
         </section>
       )}
-    </>
+    </div>
   )
 }

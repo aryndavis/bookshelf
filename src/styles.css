@@ -1236,21 +1236,27 @@ legend {
 
 /* ---------- Genre key ---------- */
 
-/* A ribbon bookmark poking out of the right edge of the page, narrow enough to sit in the margin,
-   with a notched tip and a pixel tassel hanging from it. */
-.genre-bookmark {
-  position: fixed;
-  z-index: 20;
-  right: 0;
-  bottom: 120px;
+/* A ribbon bookmark set down at an angle beside the "All books" heading, notched at its tip, with a pixel
+   tassel hanging from it. The key opens just below it. */
+.catalog-title {
   display: flex;
-  flex-direction: column;
   align-items: center;
+  gap: 18px;
+}
+
+.genre-key-spot {
+  position: relative;
+}
+
+.genre-bookmark {
+  display: flex;
+  align-items: flex-start;
   padding: 0;
   border: 0;
   background: none;
   color: var(--ink);
   font: 500 14px var(--pixel);
+  rotate: -4deg;
   cursor: pointer;
 }
 
@@ -1258,12 +1264,11 @@ legend {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 7px 22px;
+  padding: 7px 24px 7px 12px;
   background: var(--pink);
-  writing-mode: vertical-rl;
-  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% calc(100% - 10px), 0 100%);
-  filter: drop-shadow(0 -3px 0 var(--ink)) drop-shadow(-3px 0 0 var(--ink));
-  transition: padding-right 0.15s steps(3);
+  clip-path: polygon(0 0, 100% 0, calc(100% - 10px) 50%, 100% 100%, 0 100%);
+  filter: drop-shadow(0 3px 0 var(--ink)) drop-shadow(-3px 0 0 var(--ink)) drop-shadow(0 -3px 0 var(--ink));
+  transition: padding-left 0.15s steps(3);
 }
 
 .bookmark-heart {
@@ -1272,13 +1277,13 @@ legend {
 
 /* The cord starts just inside the notch, so the tassel looks tied to the tip. */
 .bookmark-tassel {
-  margin-top: -12px;
+  margin: 14px 0 0 -16px;
   transform-origin: top center;
 }
 
 .genre-bookmark:hover .bookmark-ribbon,
 .genre-bookmark[aria-expanded='true'] .bookmark-ribbon {
-  padding-right: 12px;
+  padding-left: 16px;
   background: var(--lilac);
 }
 
@@ -1307,12 +1312,11 @@ legend {
 }
 
 .genre-key {
-  position: fixed;
+  position: absolute;
   z-index: 21;
-  /* Beside the bookmark, not over it. */
-  right: 52px;
-  bottom: 120px;
-  width: min(620px, calc(100vw - 32px));
+  top: calc(100% + 14px);
+  left: 0;
+  width: min(620px, calc(100vw - 2 * var(--gutter) - 120px));
   max-height: min(70vh, 640px);
   overflow: auto;
 }
@@ -1365,15 +1369,16 @@ legend {
 }
 
 @media (max-width: 600px) {
-  .genre-bookmark {
-    bottom: 96px;
+  .genre-key-spot {
+    position: static;
+  }
+
+  .catalog-title {
+    position: relative;
   }
 
   .genre-key {
-    right: 16px;
-    left: 16px;
-    bottom: 96px;
-    width: auto;
+    width: calc(100vw - 2 * var(--gutter));
   }
 }
 
