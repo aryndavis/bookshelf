@@ -1,10 +1,10 @@
 import { addDays, today } from './dates'
-import type { Book, LibraryStore, Loan } from './types'
+import type { Book, Borrowing, LibraryStore, Loan } from './types'
 
 // Demo mode: used until Supabase is configured. Data stays in this browser only.
 export const STORAGE_KEY = 'bookshelf-demo-v1'
 
-type Data = { books: Book[]; loans: Loan[] }
+type Data = { books: Book[]; loans: Loan[]; borrowings: Borrowing[] }
 
 // randomUUID only exists in secure contexts (HTTPS/localhost); getRandomValues also works over plain HTTP,
 // e.g. when the dev server is opened from a phone on the LAN.
@@ -18,7 +18,7 @@ const now = () => new Date().toISOString()
 
 function sampleData(): Data {
   const t = today()
-  const book = (title: string, author: string, coverColor: Book['coverColor'], coverPattern: Book['coverPattern'], daysAgo: number, genre = ''): Book => ({
+  const book = (title: string, author: string, coverColor: Book['coverColor'], coverPattern: Book['coverPattern'], daysAgo: number, genre = '', readingStatus: Book['readingStatus'] = 'read'): Book => ({
     id: newId(),
     title,
     author,
@@ -28,15 +28,16 @@ function sampleData(): Data {
     pages: null,
     coverColor,
     coverPattern,
+    readingStatus,
     notes: '',
     acquiredOn: addDays(t, -daysAgo),
     createdAt: new Date(Date.now() - daysAgo * 86_400_000).toISOString(),
   })
   const books = [
-    book('Matilda', 'Roald Dahl', 'pink', 'hearts', 3, 'Children’s'),
+    book('Matilda', 'Roald Dahl', 'pink', 'hearts', 3, 'Children’s', 'to-read'),
     book('The Hobbit', 'J.R.R. Tolkien', 'forest', 'stars', 40, 'Fantasy'),
     book('Understanding by Design', 'Grant Wiggins & Jay McTighe', 'sky', 'checks', 120, 'Education'),
-    book('Wine Folly', 'Madeline Puckette', 'wine', 'dots', 12, 'Wine'),
+    book('Wine Folly', 'Madeline Puckette', 'wine', 'dots', 12, 'Wine', 'reading'),
     book('Braiding Sweetgrass', 'Robin Wall Kimmerer', 'mint', 'waves', 200, 'Nature'),
     book('Little Women', 'Louisa May Alcott', 'peach', 'stripes', 300, 'Classic'),
   ]
@@ -51,9 +52,27 @@ function sampleData(): Data {
     notes: '',
     createdAt: now(),
   })
+  const borrowing = (title: string, author: string, lender: string, coverColor: Book['coverColor'], coverPattern: Book['coverPattern'], outDaysAgo: number, dueIn: number | null, returnedDaysAgo: number | null = null): Borrowing => ({
+    id: newId(),
+    title,
+    author,
+    lender,
+    borrowedOn: addDays(t, -outDaysAgo),
+    dueOn: dueIn === null ? null : addDays(t, -outDaysAgo + dueIn),
+    returnedOn: returnedDaysAgo === null ? null : addDays(t, -returnedDaysAgo),
+    coverColor,
+    coverPattern,
+    notes: '',
+    createdAt: now(),
+  })
   return {
     books,
     loans: [loan(books[1], 'Sam', 30, 21), loan(books[4], 'Priya', 6, 21), loan(books[5], 'Sam', 90, 21, 70)],
+    borrowings: [
+      borrowing('Piranesi', 'Susanna Clarke', 'Brooklyn Public Library', 'navy', 'stars', 10, 21),
+      borrowing('The Secret History', 'Donna Tartt', 'Maya', 'wine', 'checks', 45, null),
+      borrowing('Kindred', 'Octavia E. Butler', 'Brooklyn Public Library', 'peach', 'waves', 60, 21, 41),
+    ],
   }
 }
 
@@ -62,7 +81,14 @@ function stored(): Data | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     const parsed = raw ? (JSON.parse(raw) as Partial<Data> | null) : null
-    if (parsed && Array.isArray(parsed.books) && Array.isArray(parsed.loans)) return parsed as Data
+    // Libraries saved before borrowing and reading status existed have neither yet.
+    if (parsed && Array.isArray(parsed.books) && Array.isArray(parsed.loans)) {
+      return {
+        ...parsed,
+        books: parsed.books.map((b) => ({ ...b, readingStatus: b.readingStatus ?? null })),
+        borrowings: Array.isArray(parsed.borrowings) ? parsed.borrowings : [],
+      } as Data
+    }
   } catch {
     // Storage unavailable or corrupted.
   }
@@ -126,7 +152,7 @@ export function demoStore(): LibraryStore {
     },
     async deleteBook(id) {
       const current = latest()
-      save({ books: current.books.filter((b) => b.id !== id), loans: current.loans.filter((l) => l.bookId !== id) })
+      save({ ...current, books: current.books.filter((b) => b.id !== id), loans: current.loans.filter((l) => l.bookId !== id) })
     },
     async checkOut(bookId, input) {
       const current = latest()
@@ -144,6 +170,25 @@ export function demoStore(): LibraryStore {
       const updated = { ...existing, returnedOn }
       save({ ...current, loans: current.loans.map((l) => (l.id === loanId ? updated : l)) })
       return updated
+    },
+    async addBorrowing(input) {
+      const current = latest()
+      const created: Borrowing = { ...input, id: newId(), returnedOn: null, createdAt: now() }
+      save({ ...current, borrowings: [created, ...current.borrowings] })
+      return created
+    },
+    async giveBack(borrowingId, returnedOn) {
+      const current = latest()
+      const existing = current.borrowings.find((b) => b.id === borrowingId)
+      if (!existing) throw new Error('Borrowed book not found.')
+      if (existing.returnedOn) throw new Error('That book was already given back.')
+      const updated = { ...existing, returnedOn }
+      save({ ...current, borrowings: current.borrowings.map((b) => (b.id === borrowingId ? updated : b)) })
+      return updated
+    },
+    async deleteBorrowing(borrowingId) {
+      const current = latest()
+      save({ ...current, borrowings: current.borrowings.filter((b) => b.id !== borrowingId) })
     },
   }
 }

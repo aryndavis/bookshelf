@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import BookCover from '../components/BookCover'
 import Panel from '../components/Panel'
 import { daysBetween, formatDate, plural, today } from '../lib/dates'
-import { isOverdue } from '../lib/loans'
+import { groupByName, isOverdue } from '../lib/loans'
 import type { Book, Loan } from '../lib/types'
 import { useLibrary } from '../state/LibraryContext'
 
@@ -15,18 +15,13 @@ export default function Loans() {
   const open = loans.filter((l) => !l.returnedOn && bookById.has(l.bookId))
   const history = loans.filter((l) => l.returnedOn && bookById.has(l.bookId)).sort((a, b) => (b.returnedOn ?? '').localeCompare(a.returnedOn ?? ''))
 
-  // Group open loans by borrower (ignoring capitalization), overdue people first.
-  const groups = new Map<string, { name: string; contact: string; loans: Loan[] }>()
-  for (const loan of open) {
-    const key = loan.borrower.trim().toLowerCase()
-    const group = groups.get(key) ?? { name: loan.borrower.trim(), contact: '', loans: [] }
-    group.loans.push(loan)
-    group.contact ||= loan.contact
-    groups.set(key, group)
-  }
-  const people = [...groups.values()]
-    .map((g) => ({ ...g, loans: g.loans.sort((a, b) => a.loanedOn.localeCompare(b.loanedOn)), overdue: g.loans.filter(isOverdue).length }))
-    .sort((a, b) => b.overdue - a.overdue || a.name.localeCompare(b.name))
+  // Group open loans by borrower, overdue people first, with the latest way to reach them.
+  const people = groupByName(open, (l) => l.borrower, (l) => l.loanedOn).map((g) => ({
+    name: g.name,
+    contact: [...g.items].reverse().find((l) => l.contact)?.contact ?? '',
+    loans: g.items,
+    overdue: g.overdue,
+  }))
 
   const loanLine = (loan: Loan) => {
     const days = daysBetween(loan.loanedOn, t)

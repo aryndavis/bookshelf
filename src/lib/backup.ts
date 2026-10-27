@@ -1,5 +1,6 @@
 import { today } from './dates'
-import type { Book, Loan } from './types'
+import { READING_LABELS } from './reading'
+import type { Book, Borrowing, Loan } from './types'
 
 function download(filename: string, type: string, content: string) {
   const url = URL.createObjectURL(new Blob([content], { type }))
@@ -10,8 +11,8 @@ function download(filename: string, type: string, content: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
-export function downloadJson(books: Book[], loans: Loan[]) {
-  download(`library-backup-${today()}.json`, 'application/json', JSON.stringify({ exportedAt: new Date().toISOString(), books, loans }, null, 2))
+export function downloadJson(books: Book[], loans: Loan[], borrowings: Borrowing[]) {
+  download(`library-backup-${today()}.json`, 'application/json', JSON.stringify({ exportedAt: new Date().toISOString(), books, loans, borrowings }, null, 2))
 }
 
 // Quote every cell, and defuse values that spreadsheet apps would run as formulas.
@@ -24,10 +25,10 @@ const cell = (value: unknown) => {
 /** The catalog as CSV text, one row per book, with who has it if it's checked out. */
 export function catalogCsv(books: Book[], loans: Loan[]) {
   const open = new Map(loans.filter((l) => !l.returnedOn).map((l) => [l.bookId, l]))
-  const header = ['Title', 'Author', 'ISBN', 'Genre', 'Year', 'Pages', 'Acquired', 'Checked out to', 'Out since', 'Due', 'Notes']
+  const header = ['Title', 'Author', 'ISBN', 'Genre', 'Year', 'Pages', 'Reading status', 'Acquired', 'Checked out to', 'Out since', 'Due', 'Notes']
   const rows = books.map((b) => {
     const loan = open.get(b.id)
-    return [b.title, b.author, b.isbn, b.genre, b.year, b.pages, b.acquiredOn, loan?.borrower, loan?.loanedOn, loan?.dueOn, b.notes]
+    return [b.title, b.author, b.isbn, b.genre, b.year, b.pages, b.readingStatus && READING_LABELS[b.readingStatus], b.acquiredOn, loan?.borrower, loan?.loanedOn, loan?.dueOn, b.notes]
   })
   // The byte-order mark tells Excel the file is UTF-8, so curly quotes and accents don't turn into mojibake.
   return '\uFEFF' + [header, ...rows].map((r) => r.map(cell).join(',')).join('\r\n')

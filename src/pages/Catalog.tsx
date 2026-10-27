@@ -5,11 +5,15 @@ import BookCover from '../components/BookCover'
 import { config } from '../config'
 import { addDays, plural, today } from '../lib/dates'
 import { isOverdue } from '../lib/loans'
+import { READING_LABELS } from '../lib/reading'
 import type { Book } from '../lib/types'
 import { useLibrary } from '../state/LibraryContext'
 
 const FILTERS = { all: 'All books', shelf: 'On the shelf', out: 'Checked out', overdue: 'Overdue' } as const
 type Filter = keyof typeof FILTERS
+
+const READING = { any: 'Any status', ...READING_LABELS } as const
+type Reading = keyof typeof READING
 
 const SORTS = { recent: 'Recently added', title: 'Title A–Z', author: 'Author A–Z' } as const
 type Sort = keyof typeof SORTS
@@ -23,6 +27,7 @@ const readOption = <T extends string>(params: URLSearchParams, name: string, opt
 }
 const readFilter = (params: URLSearchParams) => readOption<Filter>(params, 'show', FILTERS, 'all')
 const readSort = (params: URLSearchParams) => readOption<Sort>(params, 'sort', SORTS, 'recent')
+const readReading = (params: URLSearchParams) => readOption<Reading>(params, 'reading', READING, 'any')
 
 export default function Catalog() {
   const { books, activeLoans, canEdit } = useLibrary()
@@ -34,6 +39,7 @@ export default function Catalog() {
   const [query, setQuery] = useState(params.get('q') ?? '')
   const [filter, setFilter] = useState<Filter>(() => readFilter(params))
   const [sort, setSort] = useState<Sort>(() => readSort(params))
+  const [reading, setReading] = useState<Reading>(() => readReading(params))
 
   // A link elsewhere (like the header's Catalog link) or Back/Forward can change the URL without remounting
   // this page: adopt that URL. Our own mirror writes are marked so they're skipped, but the mark stays in
@@ -46,6 +52,7 @@ export default function Catalog() {
       setQuery(params.get('q') ?? '')
       setFilter(readFilter(params))
       setSort(readSort(params))
+      setReading(readReading(params))
     }
   }
 
@@ -56,9 +63,10 @@ export default function Catalog() {
     if (query) next.set('q', query)
     if (filter !== 'all') next.set('show', filter)
     if (sort !== 'recent') next.set('sort', sort)
+    if (reading !== 'any') next.set('reading', reading)
     if (next.toString() !== window.location.search.replace(/^\?/, '')) setParams(next, { replace: true, state: { fromCatalog: true } })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- deliberately not setParams; see above.
-  }, [query, filter, sort])
+  }, [query, filter, sort, reading])
 
   const overdueCount = [...activeLoans.values()].filter(isOverdue).length
   const borrowers = new Set([...activeLoans.values()].map((l) => l.borrower.trim().toLowerCase())).size
@@ -75,6 +83,7 @@ export default function Catalog() {
       if (filter === 'shelf' && loan) return false
       if (filter === 'out' && !loan) return false
       if (filter === 'overdue' && !(loan && isOverdue(loan))) return false
+      if (reading !== 'any' && b.readingStatus !== reading) return false
       if (!needle) return true
       return [b.title, b.author, b.genre, b.isbn ?? '', loan?.borrower ?? ''].some((field) => field.toLowerCase().includes(needle))
     })
@@ -161,6 +170,13 @@ export default function Catalog() {
           {(Object.keys(FILTERS) as Filter[]).map((key) => (
             <button key={key} type="button" className="chip" aria-pressed={filter === key} onClick={() => setFilter(key)}>
               {FILTERS[key]}
+            </button>
+          ))}
+        </div>
+        <div className="filters reading-filters" role="group" aria-label="Reading status">
+          {(Object.keys(READING) as Reading[]).map((key) => (
+            <button key={key} type="button" className="chip" aria-pressed={reading === key} onClick={() => setReading(key)}>
+              {READING[key]}
             </button>
           ))}
         </div>

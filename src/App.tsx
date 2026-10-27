@@ -6,6 +6,7 @@ import OwnerOnly from './components/OwnerOnly'
 import Panel from './components/Panel'
 import Backup from './pages/Backup'
 import { AddBook, EditBook } from './pages/BookForm'
+import Borrowing from './pages/Borrowing'
 import BookPage from './pages/BookPage'
 import Catalog from './pages/Catalog'
 import Loans from './pages/Loans'
@@ -70,6 +71,14 @@ function Gate() {
           element={
             <OwnerOnly reason="Who has what is private. Sign in to see it.">
               <Loans />
+            </OwnerOnly>
+          }
+        />
+        <Route
+          path="borrowing"
+          element={
+            <OwnerOnly reason="What I’m borrowing is private. Sign in to see it.">
+              <Borrowing />
             </OwnerOnly>
           }
         />

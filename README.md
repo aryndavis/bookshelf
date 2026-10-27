@@ -6,10 +6,13 @@ A cozy, pixel-art catalog for my physical book collection. It keeps track of eve
 
 - **Book catalog:** every book as a cute pixel cover, with search, filters (on the shelf, checked out, overdue) and sorting.
 - **New arrivals shelf:** books added in the last 45 days, plus a quick “add a book you just bought” slot.
-- **Add books fast:** type an ISBN to fill in the title, author and year from [Open Library](https://openlibrary.org). Then pick a cover color and pattern (or hit **Surprise me**) and watch the preview update. Use **Add & start another** to enter a whole stack.
+- **Add books fast:** type an ISBN to fill in the title, author, genre, year and pages from [Open Library](https://openlibrary.org). Then pick a cover color and pattern (or hit **Surprise me**) and watch the preview update. Use **Add & start another** to enter a whole stack.
+- **Details filled in for you:** add a book with the genre, year or pages left blank and they're looked up on Open Library (by ISBN, then by title and author). **Fill in missing details** on the Backup page does the same for books already in the library. Anything you typed is kept.
+- **Reading status:** mark each book **Read**, **Reading** or **To be read** with one tap on its page, and filter the catalog by it. New books start as To be read.
 - **Lending:** check a book out to someone with an optional due date. A rubber stamp slams onto the cover, and **RETURNED** stamps it when it comes back. Every book has an old-school pocket library card showing its loan history.
 - **Who has what:** a card for each person who has books, with how long they’ve had them; overdue books come first. Below it is a log of past returns.
-- **Backup:** download the catalog as a spreadsheet (CSV) or a full JSON backup.
+- **Borrowing:** the books you’re borrowing, grouped by who or where they’re from (a friend, the public library), with due dates, a **Gave it back** button and a log of what you’ve returned. Private: only you see it.
+- **Backup:** download the catalog as a spreadsheet (CSV) or a full JSON backup (books, loans and borrowed books).
 
 Built with React, TypeScript, Vite, and [Supabase](https://supabase.com) for storage and login.
 
@@ -22,8 +25,10 @@ Taken in demo mode (sample books) from the production build at 1280×800. Update
 | ![Book catalog with new arrivals and all books](docs/screenshots/catalog.jpg) | ![A book that's on the shelf](docs/screenshots/book.jpg) |
 | **Checked out (stamp and date-due card)** | **Who has what** |
 | ![A checked-out book with its stamp and date-due card](docs/screenshots/book-checked-out.jpg) | ![Loans grouped by borrower](docs/screenshots/loans.jpg) |
-| **Add a book** | **Backup** |
-| ![Add a book form](docs/screenshots/add-book.jpg) | ![Backup and export page](docs/screenshots/backup.jpg) |
+| **Borrowing** | **Add a book** |
+| ![Books I'm borrowing, grouped by who or where they're from](docs/screenshots/borrowing.jpg) | ![Add a book form](docs/screenshots/add-book.jpg) |
+| **Backup** | |
+| ![Backup, export and fill in missing details](docs/screenshots/backup.jpg) | |
 
 ## Run it
 
@@ -44,9 +49,11 @@ Every pull request runs lint, type-check, tests and a build in GitHub Actions (`
 - **Storage contract** (`src/lib/store.contract.test.ts`): the demo store and the Supabase store pass the same suite.
   - Add, edit and delete books (deleting a book removes its loans).
   - Check out and check in, refusing a double checkout or a second check-in.
+  - Borrowed books: add, give back (only once) and remove.
   - The Supabase store runs against an in-memory fake client (`src/test/fakeSupabase.ts`) that mirrors the database constraints (one open loan per book, deletes cascading to loans) and Supabase's row limit. It's also tested on paging past that limit, the public view (no borrower details), and passing database errors on.
 - **Demo store failures:** corrupt, full or blocked browser storage, and two tabs saving at once.
-- **Open Library lookup**, including dropped connections; ISBNs, dates, overdue loans, and the CSV export (including spreadsheet formula defusing).
+- **Older databases and saved demo libraries** still load before the October 2026 update: books without a reading status, and borrowing marked not set up.
+- **Open Library lookup**, including dropped connections, genres picked from real subject lists, title searches that refuse a different book, and filling in only what's blank; ISBNs, dates, overdue loans, and the CSV export (including spreadsheet formula defusing).
 
 Without Supabase settings the app runs in **demo mode**: sample books, saved only in that browser.
 
@@ -62,7 +69,8 @@ Without Supabase settings the app runs in **demo mode**: sample books, saved onl
    - Only you, signed in, can add, edit, lend or delete.
    - It sets your account (the project's only user) as the owner.
    - Until this is run, the app asks visitors to sign in before showing anything, as before.
-6. Copy `.env.example` to `.env.local` and fill in the **Project URL** and the **publishable key**. `.env.local` is gitignored.
+6. **SQL Editor → New query:** paste in [`supabase/update-2026-10.sql`](supabase/update-2026-10.sql) and run it. It adds reading status to books (visible to visitors) and the private `borrowings` table. If you set things up before October 2026, run just this step. Until it's run, the app still works, but borrowing asks you to run it, and saving a book needs it.
+7. Copy `.env.example` to `.env.local` and fill in the **Project URL** and the **publishable key**. `.env.local` is gitignored.
 
 The publishable key is meant to be public; the database rules protect your data. **Never** put the secret / `service_role` key in this app or repo.
 
