@@ -1,8 +1,9 @@
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { DEFAULT_ICON, GENRE_ICONS, iconFor } from '../lib/genreIcons'
 import { COVER_COLORS } from '../lib/types'
 import { useLibrary } from '../state/LibraryContext'
 import BookCover from './BookCover'
+import Panel from './Panel'
 
 /** A bookmark lying beside the catalog heading that opens a key to the genre icons on the covers. */
 export default function GenreKey() {
@@ -17,41 +18,53 @@ export default function GenreKey() {
   // How many of the library's books each icon stands for.
   const counts = useMemo(() => {
     const byIcon = new Map<string, number>()
-    for (const book of books) byIcon.set(iconFor(book.genre), (byIcon.get(iconFor(book.genre)) ?? 0) + 1)
+    for (const book of books) {
+      const icon = iconFor(book.genre)
+      byIcon.set(icon, (byIcon.get(icon) ?? 0) + 1)
+    }
     return byIcon
   }, [books])
+
+  const close = useCallback((returnFocus: boolean) => {
+    setOpen(false)
+    if (returnFocus) bookmark.current?.focus()
+  }, [])
 
   useEffect(() => {
     if (!open) return
     closeButton.current?.focus()
-    const close = (returnFocus: boolean) => {
-      setOpen(false)
-      if (returnFocus) bookmark.current?.focus()
-    }
+    const inside = (target: EventTarget | null) => target instanceof Node && (panel.current?.contains(target) || bookmark.current?.contains(target))
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') close(true)
     }
-    // A click anywhere else closes it (the bookmark toggles it itself).
+    // A click elsewhere, or tabbing out to the page under it, closes it (the bookmark toggles it itself).
     const onPointer = (event: PointerEvent) => {
-      const target = event.target as Node
-      if (!panel.current?.contains(target) && !bookmark.current?.contains(target)) close(false)
+      if (!inside(event.target)) close(false)
+    }
+    const onFocus = (event: FocusEvent) => {
+      if (!inside(event.target)) close(false)
     }
     document.addEventListener('keydown', onKey)
     document.addEventListener('pointerdown', onPointer)
+    document.addEventListener('focusin', onFocus)
     return () => {
       document.removeEventListener('keydown', onKey)
       document.removeEventListener('pointerdown', onPointer)
+      document.removeEventListener('focusin', onFocus)
     }
-  }, [open])
+  }, [open, close])
 
   return (
     <div className="genre-key-spot">
       <button ref={bookmark} type="button" className="genre-bookmark" aria-expanded={open} aria-controls={panelId} onClick={() => setOpen((o) => !o)}>
-        <span className="bookmark-ribbon">
-          <svg className="bookmark-heart" viewBox="0 0 7 6" width="14" height="12" shapeRendering="crispEdges" aria-hidden="true">
-            <path d="M1 0h2v1h1V0h2v1h1v2H6v1H5v1H4v1H3V5H2V4H1V3H0V1h1z" fill="currentColor" />
-          </svg>
-          Genre key
+        {/* The outline goes on the wrapper: a filter on the clipped ribbon itself would be clipped away. */}
+        <span className="bookmark-outline">
+          <span className="bookmark-ribbon">
+            <svg className="bookmark-heart" viewBox="0 0 7 6" width="14" height="12" shapeRendering="crispEdges" aria-hidden="true">
+              <path d="M1 0h2v1h1V0h2v1h1v2H6v1H5v1H4v1H3V5H2V4H1V3H0V1h1z" fill="currentColor" />
+            </svg>
+            Genre key
+          </span>
         </span>
         {/* A little pixel tassel on a cord, hanging from the bookmark's tip */}
         <svg className="bookmark-tassel" viewBox="0 0 9 18" width="24" height="48" shapeRendering="crispEdges" aria-hidden="true">
@@ -65,45 +78,38 @@ export default function GenreKey() {
         </svg>
       </button>
       {open && (
-        <section ref={panel} id={panelId} className="panel tone-lilac genre-key" role="dialog" aria-labelledby={titleId}>
-          <div className="panel-bar">
-            <span>genre_key.txt</span>
-            <span className="panel-stripes" aria-hidden="true" />
-            <button
-              ref={closeButton}
-              type="button"
-              className="panel-close"
-              aria-label="Close the genre key"
-              onClick={() => {
-                setOpen(false)
-                bookmark.current?.focus()
-              }}
-            >
-              ×
-            </button>
-          </div>
-          <div className="panel-body">
-            <h2 id={titleId} className="panel-heading">
-              What the icons mean
-            </h2>
-            <p className="hint">Each cover’s icon comes from its genre. A genre that isn’t listed here gets the open book.</p>
-            <ul className="genre-key-grid">
-              {Object.keys(GENRE_ICONS).map((genre, i) => {
-                const count = counts.get(genre) ?? 0
-                return (
-                  <li key={genre}>
-                    <BookCover title="" genre={genre} color={COVER_COLORS[i % COVER_COLORS.length]} pattern="plain" size={40} />
-                    <span>
-                      {genre}
-                      {genre === DEFAULT_ICON && <small>and anything else</small>}
-                      {count > 0 && <small>{count === 1 ? '1 book' : `${count} books`}</small>}
-                    </span>
-                  </li>
-                )
-              })}
-            </ul>
-          </div>
-        </section>
+        <Panel
+          ref={panel}
+          id={panelId}
+          role="dialog"
+          title="genre_key.txt"
+          tone="lilac"
+          className="genre-key"
+          labelledBy={titleId}
+          onClose={() => close(true)}
+          closeLabel="Close the genre key"
+          closeRef={closeButton}
+        >
+          <h2 id={titleId} className="panel-heading">
+            What the icons mean
+          </h2>
+          <p className="hint">Each cover’s icon comes from its genre. A genre that isn’t listed here gets the open book.</p>
+          <ul className="genre-key-grid">
+            {Object.keys(GENRE_ICONS).map((genre, i) => {
+              const count = counts.get(genre) ?? 0
+              return (
+                <li key={genre}>
+                  <BookCover title="" genre={genre} color={COVER_COLORS[i % COVER_COLORS.length]} pattern="plain" size={40} />
+                  <span>
+                    {genre}
+                    {genre === DEFAULT_ICON && <small>and anything else</small>}
+                    {count > 0 && <small>{count === 1 ? '1 book' : `${count} books`}</small>}
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
+        </Panel>
       )}
     </div>
   )

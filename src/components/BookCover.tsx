@@ -1,5 +1,5 @@
 import { useId, type ReactElement } from 'react'
-import { CHAR_WIDTH, coverAuthor, fitLine, titleLines, type FittedLine } from '../lib/coverText'
+import { coverAuthor, fitLine, textWidth, titleLines, type FittedLine } from '../lib/coverText'
 import { GENRE_ICONS, iconFor } from '../lib/genreIcons'
 import type { CoverColor, CoverPattern } from '../lib/types'
 
@@ -79,10 +79,11 @@ export default function BookCover({ title, author = '', genre, color, pattern, s
   // Below this, words would be too small to read, so the cover shows just its icon.
   const withText = size >= 64
 
-  // Two lines of title at the larger size if they fit, else three smaller ones.
-  const titleSize = titleLines(title, 3.3, TEXT_WIDTH, Infinity).length <= 2 ? 3.3 : 2.9
-  const lines = withText ? titleLines(title, titleSize, TEXT_WIDTH) : []
-  const name = withText ? fitLine(coverAuthor(author), 2.8, TEXT_WIDTH, CHAR_WIDTH.author) : null
+  // Two lines of title at the larger size if they fit, else up to three smaller ones.
+  const large = withText ? titleLines(title, 3.3, TEXT_WIDTH, Infinity) : []
+  const titleSize = large.length <= 2 ? 3.3 : 2.9
+  const lines = large.length <= 2 ? large : titleLines(title, titleSize, TEXT_WIDTH)
+  const name = withText ? fitLine(coverAuthor(author), 2.8, TEXT_WIDTH, textWidth.author) : null
 
   let tile: ReactElement | null = null
   if (pattern !== 'plain') {

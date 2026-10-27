@@ -71,7 +71,7 @@ export function genreFrom(subjects: string[]): string {
 }
 
 // Letters and digits only, without accents: "Les Misérables!" → "les miserables".
-const simplify = (text: string) =>
+export const simplify = (text: string) =>
   text
     .toLowerCase()
     .normalize('NFD')

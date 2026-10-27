@@ -1238,14 +1238,12 @@ legend {
 
 /* A ribbon bookmark set down at an angle beside the "All books" heading, notched at its tip, with a pixel
    tassel hanging from it. The key opens just below it. */
+/* The key opens under this whole row, starting at the page's left gutter, so it fits any screen width. */
 .catalog-title {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 18px;
-}
-
-.genre-key-spot {
-  position: relative;
 }
 
 .genre-bookmark {
@@ -1267,8 +1265,13 @@ legend {
   padding: 7px 24px 7px 12px;
   background: var(--pink);
   clip-path: polygon(0 0, 100% 0, calc(100% - 10px) 50%, 100% 100%, 0 100%);
-  filter: drop-shadow(0 3px 0 var(--ink)) drop-shadow(-3px 0 0 var(--ink)) drop-shadow(0 -3px 0 var(--ink));
   transition: padding-left 0.15s steps(3);
+}
+
+/* The ribbon's ink outline: filters run before clip-path, so it has to live on this wrapper. */
+.bookmark-outline {
+  display: flex;
+  filter: drop-shadow(0 3px 0 var(--ink)) drop-shadow(-3px 0 0 var(--ink)) drop-shadow(0 -3px 0 var(--ink)) drop-shadow(3px 0 0 var(--ink));
 }
 
 .bookmark-heart {
@@ -1316,7 +1319,7 @@ legend {
   z-index: 21;
   top: calc(100% + 14px);
   left: 0;
-  width: min(620px, calc(100vw - 2 * var(--gutter) - 120px));
+  width: min(620px, calc(100vw - 2 * var(--gutter)));
   max-height: min(70vh, 640px);
   overflow: auto;
 }
@@ -1366,20 +1369,6 @@ legend {
 .genre-key-grid small {
   font: 1.05rem var(--terminal);
   opacity: 0.8;
-}
-
-@media (max-width: 600px) {
-  .genre-key-spot {
-    position: static;
-  }
-
-  .catalog-title {
-    position: relative;
-  }
-
-  .genre-key {
-    width: calc(100vw - 2 * var(--gutter));
-  }
 }
 
 /* ---------- Login & loading ---------- */

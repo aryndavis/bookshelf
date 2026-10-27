@@ -13,6 +13,16 @@ describe('iconFor', () => {
     ['Contemporary Fiction', 'Fiction'],
     ['Cookbook', 'Cooking'],
     ['Knitting', DEFAULT_ICON],
+    ['Biographies', 'Biography'],
+    ['Mysteries', 'Mystery'],
+    ['Graphic Novels', 'Graphic Novel'],
+    ['Kids Books', 'Children’s'],
+    ['YA Romance', 'Romance'],
+    ['Poésie', DEFAULT_ICON],
+    // Names inherited from Object must not count as aliases
+    ['Constructor', DEFAULT_ICON],
+    ['toString', DEFAULT_ICON],
+    ['__proto__', DEFAULT_ICON],
     ['', DEFAULT_ICON],
     [undefined, DEFAULT_ICON],
   ])('%s → %s', (genre, icon) => {
