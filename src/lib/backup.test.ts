@@ -12,6 +12,7 @@ const book = (patch: Partial<Book>): Book => ({
   pages: null,
   coverColor: 'pink',
   coverPattern: 'hearts',
+  readingStatus: 'read',
   notes: '',
   acquiredOn: '2026-10-01',
   createdAt: '2026-10-01',
@@ -24,7 +25,7 @@ describe('catalogCsv', () => {
   it('starts with a UTF-8 byte-order mark and a header row', () => {
     const csv = catalogCsv([], [])
     expect(csv.startsWith('﻿')).toBe(true)
-    expect(rows(csv)[0]).toBe('"Title","Author","ISBN","Genre","Year","Pages","Acquired","Checked out to","Out since","Due","Notes"')
+    expect(rows(csv)[0]).toBe('"Title","Author","ISBN","Genre","Year","Pages","Reading status","Acquired","Checked out to","Out since","Due","Notes"')
   })
 
   it('quotes cells and escapes quotes', () => {
@@ -37,6 +38,12 @@ describe('catalogCsv', () => {
     expect(row).toContain(`"'=HYPERLINK(""http://evil"")"`)
     expect(row).toContain(`"'+1"`)
     expect(row).toContain(`"'@sum"`)
+  })
+
+  it('writes the reading status in words, and leaves it blank when not set', () => {
+    const [, read, unset] = rows(catalogCsv([book({}), book({ id: 'b2', readingStatus: null })], []))
+    expect(read).toContain('"1988","","Read","2026-10-01"')
+    expect(unset).toContain('"1988","","","2026-10-01"')
   })
 
   it('shows who has a book only for open loans', () => {

@@ -1,6 +1,9 @@
 export const COVER_COLORS = ['pink', 'peach', 'yellow', 'mint', 'sky', 'lilac', 'wine', 'navy', 'forest', 'cream'] as const
 export const COVER_PATTERNS = ['plain', 'stripes', 'dots', 'stars', 'hearts', 'checks', 'waves'] as const
 
+export const READING_STATUSES = ['to-read', 'reading', 'read'] as const
+export type ReadingStatus = (typeof READING_STATUSES)[number]
+
 export type CoverColor = (typeof COVER_COLORS)[number]
 export type CoverPattern = (typeof COVER_PATTERNS)[number]
 
@@ -14,6 +17,8 @@ export interface Book {
   pages: number | null
   coverColor: CoverColor
   coverPattern: CoverPattern
+  /** Null for books added before reading status existed, until it's set. */
+  readingStatus: ReadingStatus | null
   notes: string
   /** ISO date (YYYY-MM-DD) the book joined the library. */
   acquiredOn: string
@@ -57,7 +62,7 @@ export type BorrowingInput = Omit<Borrowing, 'id' | 'returnedOn' | 'createdAt'>
 export interface LibraryData {
   books: Book[]
   loans: Loan[]
-  /** Null when the database isn't set up for them yet (supabase/borrowing.sql not run). */
+  /** Null when the database isn't set up for them yet (supabase/update-2026-10.sql not run). */
   borrowings: Borrowing[] | null
 }
 

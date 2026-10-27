@@ -1,7 +1,7 @@
 // Conformance: the demo store (this browser's localStorage) and the Supabase store must behave the same,
 // so the app can swap them freely. The Supabase store runs against an in-memory fake client (src/test)
 // that mirrors supabase/schema.sql: one open loan per book, loans must point at a book, and deleting a
-// book deletes its loans. Borrowings (supabase/borrowing.sql) are books lent to the owner.
+// book deletes its loans. Borrowings (supabase/update-2026-10.sql) are books lent to the owner.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fakeSupabase } from '../test/fakeSupabase'
 import { MemoryStorage } from '../test/memoryStorage'
@@ -18,6 +18,7 @@ const bookInput = (patch: Partial<BookInput> = {}): BookInput => ({
   pages: null,
   coverColor: 'pink',
   coverPattern: 'hearts',
+  readingStatus: 'read',
   notes: '',
   acquiredOn: '2026-10-15',
   ...patch,
@@ -202,10 +203,24 @@ describe('Supabase store: beyond the shared contract', () => {
     expect((await supabaseStore(db.client).loadPublic!()).borrowings).toEqual([])
   })
 
+  it('loads books without reading statuses before the update SQL adds the column', async () => {
+    const db = libraryDatabase()
+    db.tables.set('books', [{ id: 'b1', title: 'Matilda', author: '', isbn: null, genre: '', year: null, pages: null, cover_color: 'pink', cover_pattern: 'plain', notes: '', acquired_on: '2026-01-01', created_at: '2026-01-01T00:00:00Z' }])
+    db.failNext('books', 'select', { message: 'column books.reading_status does not exist', code: '42703' })
+    const { books } = await supabaseStore(db.client).load()
+    expect(books).toEqual([expect.objectContaining({ title: 'Matilda', readingStatus: null })])
+  })
+
+  it('explains what to run when saving needs the reading status column', async () => {
+    const db = libraryDatabase()
+    db.failNext('books', 'insert', { message: "Could not find the 'reading_status' column of 'books' in the schema cache", code: 'PGRST204' })
+    await expect(supabaseStore(db.client).addBook(bookInput())).rejects.toThrow('supabase/update-2026-10.sql')
+  })
+
   it.each([
     ['PGRST205', 'Could not find the table \'public.borrowings\' in the schema cache'],
     ['42P01', 'relation "public.borrowings" does not exist'],
-  ])('still loads the library before borrowing.sql is run (%s), with borrowings marked not set up', async (code, message) => {
+  ])('still loads the library before the update SQL is run (%s), with borrowings marked not set up', async (code, message) => {
     const db = libraryDatabase()
     const store = supabaseStore(db.client)
     await store.addBook(bookInput())
@@ -247,6 +262,12 @@ describe('demo store: when browser storage misbehaves', () => {
     expect((await store.load()).borrowings).toEqual([])
     const added = await store.addBorrowing(borrowingInput())
     expect((await store.load()).borrowings).toEqual([added])
+  })
+
+  it('keeps books saved before reading status existed, with no status yet', async () => {
+    const { readingStatus: _, ...old } = { ...bookInput(), id: 'b1', createdAt: '2026-01-01' }
+    storage.setItem(STORAGE_KEY, JSON.stringify({ books: [old], loans: [] }))
+    expect((await demoStore().load()).books).toEqual([{ ...old, readingStatus: null }])
   })
 
   it('recovers with sample books instead of crashing when the saved data is corrupt', async () => {

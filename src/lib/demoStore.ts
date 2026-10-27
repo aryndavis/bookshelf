@@ -18,7 +18,7 @@ const now = () => new Date().toISOString()
 
 function sampleData(): Data {
   const t = today()
-  const book = (title: string, author: string, coverColor: Book['coverColor'], coverPattern: Book['coverPattern'], daysAgo: number, genre = ''): Book => ({
+  const book = (title: string, author: string, coverColor: Book['coverColor'], coverPattern: Book['coverPattern'], daysAgo: number, genre = '', readingStatus: Book['readingStatus'] = 'read'): Book => ({
     id: newId(),
     title,
     author,
@@ -28,15 +28,16 @@ function sampleData(): Data {
     pages: null,
     coverColor,
     coverPattern,
+    readingStatus,
     notes: '',
     acquiredOn: addDays(t, -daysAgo),
     createdAt: new Date(Date.now() - daysAgo * 86_400_000).toISOString(),
   })
   const books = [
-    book('Matilda', 'Roald Dahl', 'pink', 'hearts', 3, 'Children’s'),
+    book('Matilda', 'Roald Dahl', 'pink', 'hearts', 3, 'Children’s', 'to-read'),
     book('The Hobbit', 'J.R.R. Tolkien', 'forest', 'stars', 40, 'Fantasy'),
     book('Understanding by Design', 'Grant Wiggins & Jay McTighe', 'sky', 'checks', 120, 'Education'),
-    book('Wine Folly', 'Madeline Puckette', 'wine', 'dots', 12, 'Wine'),
+    book('Wine Folly', 'Madeline Puckette', 'wine', 'dots', 12, 'Wine', 'reading'),
     book('Braiding Sweetgrass', 'Robin Wall Kimmerer', 'mint', 'waves', 200, 'Nature'),
     book('Little Women', 'Louisa May Alcott', 'peach', 'stripes', 300, 'Classic'),
   ]
@@ -80,8 +81,14 @@ function stored(): Data | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     const parsed = raw ? (JSON.parse(raw) as Partial<Data> | null) : null
-    // Libraries saved before borrowing existed have no borrowings yet.
-    if (parsed && Array.isArray(parsed.books) && Array.isArray(parsed.loans)) return { ...parsed, borrowings: Array.isArray(parsed.borrowings) ? parsed.borrowings : [] } as Data
+    // Libraries saved before borrowing and reading status existed have neither yet.
+    if (parsed && Array.isArray(parsed.books) && Array.isArray(parsed.loans)) {
+      return {
+        ...parsed,
+        books: parsed.books.map((b) => ({ ...b, readingStatus: b.readingStatus ?? null })),
+        borrowings: Array.isArray(parsed.borrowings) ? parsed.borrowings : [],
+      } as Data
+    }
   } catch {
     // Storage unavailable or corrupted.
   }

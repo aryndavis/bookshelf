@@ -236,7 +236,7 @@ export default function BorrowingPage() {
         <Panel title="setup.txt" tone="yellow" className="narrow">
           <h2 className="panel-heading">Turn on borrowing</h2>
           <p>
-            In the Supabase dashboard, open <strong>SQL Editor → New query</strong>, paste in <code>supabase/borrowing.sql</code> from this app’s repo, and
+            In the Supabase dashboard, open <strong>SQL Editor → New query</strong>, paste in <code>supabase/update-2026-10.sql</code> from this app’s repo, and
             run it. Then reload this page.
           </p>
         </Panel>

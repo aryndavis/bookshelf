@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { lookupIsbn, normalizeIsbn } from './openLibrary'
+import { fillBlanks, genreFrom, hasBlanks, lookupBook, lookupIsbn, normalizeIsbn } from './openLibrary'
 
 describe('normalizeIsbn', () => {
   it('accepts ISBN-10 and ISBN-13 with spaces or dashes', () => {
@@ -22,14 +22,19 @@ describe('lookupIsbn', () => {
 
   it('maps the first result', async () => {
     respond({ docs: [{ title: 'Matilda', author_name: ['Roald Dahl', 'Quentin Blake'], first_publish_year: 1988, number_of_pages_median: 240 }] })
-    expect(await lookupIsbn('9780142410370')).toEqual({ title: 'Matilda', author: 'Roald Dahl & Quentin Blake', year: 1988, pages: 240 })
+    expect(await lookupIsbn('9780142410370')).toEqual({ title: 'Matilda', author: 'Roald Dahl & Quentin Blake', genre: '', year: 1988, pages: 240 })
   })
 
   it('returns null when nothing matches and ignores fields of the wrong type', async () => {
     respond({ docs: [] })
     expect(await lookupIsbn('9780142410370')).toBeNull()
     respond({ docs: [{ title: 'X', author_name: 'not a list', first_publish_year: '1988' }] })
-    expect(await lookupIsbn('9780142410370')).toEqual({ title: 'X', author: '', year: null, pages: null })
+    expect(await lookupIsbn('9780142410370')).toEqual({ title: 'X', author: '', genre: '', year: null, pages: null })
+  })
+
+  it('picks a genre from the subjects', async () => {
+    respond({ docs: [{ title: 'Matilda', subject: ['juvenile fiction', 'Schools', 42, 'Fiction'] }] })
+    expect((await lookupIsbn('9780142410370'))?.genre).toBe('Children’s')
   })
 
   it('reports a failed request', async () => {
@@ -49,5 +54,58 @@ describe('lookupIsbn: network failures', () => {
   it('treats a response that is not the expected shape as "not found"', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ unexpected: true }) })))
     expect(await lookupIsbn('9780142410370')).toBeNull()
+  })
+})
+
+describe('genreFrom (subject lists as Open Library returns them)', () => {
+  it.each([
+    ['an explicit genre tag wins', ['form:novel', 'genre:fantasy', 'English literature', 'Fiction'], 'Fantasy'],
+    ['the first specific subject, not plain "Fiction"', ['Fiction, general', 'Fiction, science fiction, general', 'Science fiction'], 'Science Fiction'],
+    ['subjects are in order of relevance', ['Botany', 'Ecology', 'Philosophy', 'Biography'], 'Nature'],
+    ['children’s books', ['juvenile fiction', 'Schools', 'Fiction', 'Humorous stories'], 'Children’s'],
+    ['nonfiction about technology', ['Artificial intelligence', 'OpenAI', 'ChatGPT'], 'Technology'],
+    ['plain fiction only when nothing else fits', ['Fiction', 'New York (N.Y.)'], 'Fiction'],
+    ['nothing to go on', [], ''],
+  ])('%s', (_case, subjects, genre) => {
+    expect(genreFrom(subjects)).toBe(genre)
+  })
+})
+
+describe('lookupBook by title', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  const respond = (body: unknown) => {
+    const fetch = vi.fn(async (_url: URL) => ({ ok: true, json: async () => body }))
+    vi.stubGlobal('fetch', fetch)
+    return fetch
+  }
+
+  it('searches by title and author when there is no ISBN', async () => {
+    const fetch = respond({ docs: [{ title: 'Empire of AI', author_name: ['Karen Hao'], first_publish_year: 2025, number_of_pages_median: 496, subject: ['Artificial intelligence'] }] })
+    expect(await lookupBook({ title: 'Empire of AI', author: 'Karen Hao' })).toMatchObject({ genre: 'Technology', year: 2025, pages: 496 })
+    const url = fetch.mock.calls[0][0]
+    expect([url.searchParams.get('title'), url.searchParams.get('author'), url.searchParams.get('isbn')]).toEqual(['Empire of AI', 'Karen Hao', null])
+  })
+
+  it('accepts a subtitle and different punctuation, but not a different book', async () => {
+    respond({ docs: [{ title: 'The Hobbit: or, There and Back Again' }] })
+    expect(await lookupBook({ title: 'the hobbit', author: '' })).not.toBeNull()
+    respond({ docs: [{ title: 'Survivor Song' }] })
+    expect(await lookupBook({ title: 'Survivor', author: 'Octavia E. Butler' })).toBeNull()
+  })
+})
+
+describe('fillBlanks', () => {
+  const found = { title: 'Matilda', author: 'Roald Dahl', genre: 'Children’s', year: 1988, pages: 240 }
+
+  it('fills only what is blank, and never changes what was typed', () => {
+    expect(fillBlanks({ genre: '', year: null, pages: null }, found)).toEqual({ genre: 'Children’s', year: 1988, pages: 240 })
+    expect(fillBlanks({ genre: 'Classic', year: 1990, pages: null }, found)).toEqual({ genre: 'Classic', year: 1990, pages: 240 })
+    expect(fillBlanks({ genre: '', year: null, pages: null }, null)).toEqual({ genre: '', year: null, pages: null })
+  })
+
+  it('knows when there is anything left to fill in', () => {
+    expect(hasBlanks({ genre: 'Classic', year: 1990, pages: 200 })).toBe(false)
+    expect(hasBlanks({ genre: 'Classic', year: 1990, pages: null })).toBe(true)
   })
 })

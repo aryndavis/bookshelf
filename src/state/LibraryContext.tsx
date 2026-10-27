@@ -20,7 +20,7 @@ interface LibraryValue {
   loans: Loan[]
   /** The open loan for each checked-out book, keyed by book id. */
   activeLoans: Map<string, Loan>
-  /** Books you're borrowing from others (owner only). Null until supabase/borrowing.sql is run. */
+  /** Books you're borrowing from others (owner only). Null until supabase/update-2026-10.sql is run. */
   borrowings: Borrowing[] | null
   reload: () => void
   signIn: (email: string, password: string) => Promise<void>

@@ -6,7 +6,8 @@ import Stamp, { type StampKind } from '../components/Stamp'
 import { config } from '../config'
 import { addDays, daysBetween, formatDate, plural, stampDate, today } from '../lib/dates'
 import { isOverdue } from '../lib/loans'
-import type { Book, Loan } from '../lib/types'
+import { READING_LABELS } from '../lib/reading'
+import { READING_STATUSES, type Book, type Loan, type ReadingStatus } from '../lib/types'
 import { useLibrary } from '../state/LibraryContext'
 
 function CheckOutForm({ book, onDone }: { book: Book; onDone: (loan: Loan) => void }) {
@@ -159,6 +160,45 @@ function OnLoan({ loan, onReturned }: { loan: Loan; onReturned: (loan: Loan) => 
   )
 }
 
+/** Read, reading or to be read: one tap to change it. */
+function ReadingStatusPicker({ book }: { book: Book }) {
+  const { updateBook } = useLibrary()
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const choose = async (readingStatus: ReadingStatus) => {
+    if (readingStatus === book.readingStatus) return
+    setBusy(true)
+    setError(null)
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars -- id and createdAt aren't part of an edit.
+      const { id, createdAt, ...input } = book
+      await updateBook(book.id, { ...input, readingStatus })
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="reading-picker">
+      <div className="filters" role="group" aria-label="Reading status">
+        {READING_STATUSES.map((status) => (
+          <button key={status} type="button" className="chip" aria-pressed={book.readingStatus === status} disabled={busy} onClick={() => choose(status)}>
+            {READING_LABELS[status]}
+          </button>
+        ))}
+      </div>
+      {error && (
+        <p className="form-error" role="alert">
+          {error}
+        </p>
+      )}
+    </div>
+  )
+}
+
 /** The pocket card from inside an old library book, listing every loan. */
 function LibraryCard({ book, loans }: { book: Book; loans: Loan[] }) {
   const rows = [...loans].sort((a, b) => a.loanedOn.localeCompare(b.loanedOn))
@@ -266,6 +306,11 @@ export default function BookPage() {
             {book.title}
           </h1>
           {book.author && <p className="byline">by {book.author}</p>}
+          {canEdit ? (
+            <ReadingStatusPicker book={book} />
+          ) : (
+            book.readingStatus && <p className={`reading-tag is-${book.readingStatus}`}>{READING_LABELS[book.readingStatus]}</p>
+          )}
           {justAdded && <p className="added-note">✦ Added to the library!</p>}
           <dl className="details">
             {details.map(

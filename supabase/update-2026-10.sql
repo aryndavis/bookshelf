@@ -1,5 +1,12 @@
--- Books you're borrowing from someone else (a friend, the public library). Run once after schema.sql:
--- Supabase dashboard -> SQL Editor -> New query -> paste -> Run. It's safe to run again.
+-- October 2026: reading status for each book, and books you're borrowing. Run once after schema.sql and
+-- public-view.sql: Supabase dashboard -> SQL Editor -> New query -> paste -> Run. It's safe to run again.
+
+-- Read, reading, or to be read. Books already in the library start with none until you set it.
+-- Visitors can see it, like the rest of a book's details.
+alter table public.books add column if not exists reading_status text
+  check (reading_status in ('to-read', 'reading', 'read'));
+
+-- Books you're borrowing from someone else (a friend, the public library).
 -- Private like loans: only the signed-in owner can see or change them; visitors get nothing.
 
 create table if not exists public.borrowings (

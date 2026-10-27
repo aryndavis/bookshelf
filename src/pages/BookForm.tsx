@@ -4,8 +4,9 @@ import BookCover, { PALETTE } from '../components/BookCover'
 import NotInCatalog from '../components/NotInCatalog'
 import Panel from '../components/Panel'
 import { today } from '../lib/dates'
-import { lookupIsbn, normalizeIsbn } from '../lib/openLibrary'
-import { COVER_COLORS, COVER_PATTERNS, type Book, type BookInput, type CoverColor, type CoverPattern } from '../lib/types'
+import { fillBlanks, hasBlanks, lookupBook, lookupIsbn, lookupQuery, normalizeIsbn } from '../lib/openLibrary'
+import { READING_LABELS } from '../lib/reading'
+import { COVER_COLORS, COVER_PATTERNS, READING_STATUSES, type Book, type BookInput, type CoverColor, type CoverPattern, type ReadingStatus } from '../lib/types'
 import { useLibrary } from '../state/LibraryContext'
 
 const pick = <T,>(list: readonly T[]) => list[Math.floor(Math.random() * list.length)]
@@ -19,6 +20,7 @@ const blank = (): BookInput => ({
   pages: null,
   coverColor: pick(COVER_COLORS),
   coverPattern: pick(COVER_PATTERNS),
+  readingStatus: 'to-read',
   notes: '',
   acquiredOn: today(),
 })
@@ -32,6 +34,7 @@ const toDraft = (b: BookInput): Draft => ({
   genre: b.genre,
   coverColor: b.coverColor,
   coverPattern: b.coverPattern,
+  readingStatus: b.readingStatus,
   notes: b.notes,
   acquiredOn: b.acquiredOn,
   isbn: b.isbn ?? '',
@@ -51,6 +54,16 @@ function parseDraft(d: Draft): BookInput | string {
   if (!d.acquiredOn) return 'When did it join the library?'
   if (d.acquiredOn > today()) return 'The date it joined the library can’t be in the future.'
   return { ...d, title: d.title.trim(), author: d.author.trim(), genre: d.genre.trim(), notes: d.notes.trim(), isbn, year, pages }
+}
+
+/** Fills in a blank genre, year or pages from Open Library. Saving never waits long or fails because of it. */
+async function withDetails(input: BookInput): Promise<BookInput> {
+  if (!hasBlanks(input)) return input
+  try {
+    return fillBlanks(input, await lookupBook(lookupQuery(input), AbortSignal.timeout(5000)))
+  } catch {
+    return input
+  }
 }
 
 function BookFormInner({ existing }: { existing?: Book }) {
@@ -85,12 +98,13 @@ function BookFormInner({ existing }: { existing?: Book }) {
       if (!found) return setLookup({ state: 'done', message: 'No match on Open Library. Fill it in by hand.' })
       setDraft((d) => {
         // Fill in what was found, but keep anything typed while the lookup was running.
-        const fill = (key: 'title' | 'author' | 'year' | 'pages', value: string | undefined) => (value && d[key] === started[key] ? value : d[key])
+        const fill = (key: 'title' | 'author' | 'genre' | 'year' | 'pages', value: string | undefined) => (value && d[key] === started[key] ? value : d[key])
         return {
           ...d,
           isbn,
           title: fill('title', found.title),
           author: fill('author', found.author),
+          genre: fill('genre', found.genre.slice(0, 80)),
           year: fill('year', found.year?.toString()),
           pages: fill('pages', found.pages?.toString()),
         }
@@ -105,11 +119,12 @@ function BookFormInner({ existing }: { existing?: Book }) {
   const save = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const another = (event.nativeEvent as SubmitEvent).submitter?.getAttribute('value') === 'another'
-    const input = parseDraft(draft)
-    if (typeof input === 'string') return setError(input)
+    const parsed = parseDraft(draft)
+    if (typeof parsed === 'string') return setError(parsed)
     setBusy(true)
     setError(null)
     try {
+      const input = await withDetails(parsed)
       if (existing) {
         await updateBook(existing.id, input)
         navigate(`/book/${existing.id}`)
@@ -205,6 +220,18 @@ function BookFormInner({ existing }: { existing?: Book }) {
                 <input value={draft.pages} inputMode="numeric" maxLength={6} onChange={(e) => set('pages', e.target.value)} />
               </label>
             </div>
+            <p className="hint details-hint">Leave genre, year or pages blank and they’re filled in from Open Library when you save.</p>
+            <label>
+              <span>Reading status</span>
+              <select value={draft.readingStatus ?? ''} onChange={(e) => set('readingStatus', (e.target.value || null) as ReadingStatus | null)}>
+                {draft.readingStatus === null && <option value="">Not set</option>}
+                {READING_STATUSES.map((status) => (
+                  <option key={status} value={status}>
+                    {READING_LABELS[status]}
+                  </option>
+                ))}
+              </select>
+            </label>
             <label>
               <span>Joined the library on</span>
               <input type="date" value={draft.acquiredOn} max={today()} onChange={(e) => set('acquiredOn', e.target.value)} />
