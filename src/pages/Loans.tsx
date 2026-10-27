@@ -60,7 +60,7 @@ export default function Loans() {
                 <ul className="borrower-books">
                   {person.loans.map((loan) => (
                     <li key={loan.id} className={isOverdue(loan) ? 'is-overdue' : ''}>
-                      <BookCover title={book(loan).title} color={book(loan).coverColor} pattern={book(loan).coverPattern} size={40} />
+                      <BookCover title={book(loan).title} genre={book(loan).genre} color={book(loan).coverColor} pattern={book(loan).coverPattern} size={40} />
                       <span>
                         <Link to={`/book/${loan.bookId}`}>{book(loan).title}</Link>
                         <small>{loanLine(loan)}</small>

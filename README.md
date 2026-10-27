@@ -4,7 +4,8 @@ Live at **[library.arynlynn.com](https://library.arynlynn.com)**.
 
 A cozy, pixel-art catalog for my physical book collection. It keeps track of every book I own, which ones I’ve lent out, who has them, and for how long.
 
-- **Book catalog:** every book as a cute pixel cover, with search, filters (on the shelf, checked out, overdue) and sorting.
+- **Book catalog:** every book as a cute pixel cover with a little icon for its genre, its title and the author's last name, plus search, filters (on the shelf, checked out, overdue) and sorting. Long titles drop the subtitle, wrap to three lines and end with “…”.
+- **Genre key:** the **Genre key** bookmark (with a tassel) beside the “All books” heading opens a key to the icons, with how many of your books are in each genre. A genre that isn't on the list gets the open book.
 - **New arrivals shelf:** books added in the last 45 days, plus a quick “add a book you just bought” slot.
 - **Add books fast:** type an ISBN to fill in the title, author, genre, year and pages from [Open Library](https://openlibrary.org). Then pick a cover color and pattern (or hit **Surprise me**) and watch the preview update. Use **Add & start another** to enter a whole stack.
 - **Details filled in for you:** add a book with the genre, year or pages left blank and they're looked up on Open Library (by ISBN, then by title and author). **Fill in missing details** on the Backup page does the same for books already in the library. Anything you typed is kept.
@@ -27,8 +28,8 @@ Taken in demo mode (sample books) from the production build at 1280×800. Update
 | ![A checked-out book with its stamp and date-due card](docs/screenshots/book-checked-out.jpg) | ![Loans grouped by borrower](docs/screenshots/loans.jpg) |
 | **Borrowing** | **Add a book** |
 | ![Books I'm borrowing, grouped by who or where they're from](docs/screenshots/borrowing.jpg) | ![Add a book form](docs/screenshots/add-book.jpg) |
-| **Backup** | |
-| ![Backup, export and fill in missing details](docs/screenshots/backup.jpg) | |
+| **Backup** | **Genre key** |
+| ![Backup, export and fill in missing details](docs/screenshots/backup.jpg) | ![The genre key, opened from the bookmark](docs/screenshots/genre-key.jpg) |
 
 ## Run it
 
@@ -53,6 +54,7 @@ Every pull request runs lint, type-check, tests and a build in GitHub Actions (`
   - The Supabase store runs against an in-memory fake client (`src/test/fakeSupabase.ts`) that mirrors the database constraints (one open loan per book, deletes cascading to loans) and Supabase's row limit. It's also tested on paging past that limit, the public view (no borrower details), and passing database errors on.
 - **Demo store failures:** corrupt, full or blocked browser storage, and two tabs saving at once.
 - **Older databases and saved demo libraries** still load before the October 2026 update: books without a reading status, and borrowing marked not set up.
+- **Covers:** fitting titles and author names (subtitles dropped, three lines, a gentle squeeze, then “…”), and which icon each genre gets, including aliases like Sci-Fi and Kids.
 - **Open Library lookup**, including dropped connections, genres picked from real subject lists, title searches that refuse a different book, and filling in only what's blank; ISBNs, dates, overdue loans, and the CSV export (including spreadsheet formula defusing).
 
 Without Supabase settings the app runs in **demo mode**: sample books, saved only in that browser.
@@ -96,6 +98,7 @@ When deploying, set the same two `VITE_SUPABASE_…` variables in the host’s b
 
 - Library name, default loan length, and the New Arrivals window: [`src/config.ts`](src/config.ts)
 - Cover colors and patterns: [`src/components/BookCover.tsx`](src/components/BookCover.tsx). If you add one, also add it to `src/lib/types.ts` and the check constraint in `supabase/schema.sql`.
+- Genre icons (7 × 7 pixel drawings) and the other names a genre can go by: [`src/lib/genreIcons.ts`](src/lib/genreIcons.ts).
 
 ## Ideas
 

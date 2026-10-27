@@ -11,7 +11,7 @@ export default function BookCard({ book, loan }: { book: Book; loan?: Loan }) {
     <li className="book-card">
       <Link className="book-card-link" to={`/book/${book.id}`}>
         <span className="book-card-cover">
-          <BookCover title={book.title} color={book.coverColor} pattern={book.coverPattern} size={112} />
+          <BookCover title={book.title} author={book.author} genre={book.genre} color={book.coverColor} pattern={book.coverPattern} size={112} />
           {loan && <Stamp kind={overdue ? 'overdue' : 'out'} small />}
         </span>
         <span className="book-card-title">{book.title}</span>

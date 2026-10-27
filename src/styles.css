@@ -615,6 +615,13 @@ textarea:focus-visible {
   opacity: 0.8;
 }
 
+/* A single very long word or name wraps instead of running into the next card. */
+.book-card-title,
+.book-card-author {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
 .book-card-status {
   margin-top: 4px;
   padding: 1px 6px;
@@ -1225,6 +1232,143 @@ legend {
 .borrower-books .form-error {
   margin: 6px 0 0;
   font: 600 14px var(--sans);
+}
+
+/* ---------- Genre key ---------- */
+
+/* A ribbon bookmark set down at an angle beside the "All books" heading, notched at its tip, with a pixel
+   tassel hanging from it. The key opens just below it. */
+/* The key opens under this whole row, starting at the page's left gutter, so it fits any screen width. */
+.catalog-title {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.genre-bookmark {
+  display: flex;
+  align-items: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: 500 14px var(--pixel);
+  rotate: -4deg;
+  cursor: pointer;
+}
+
+.bookmark-ribbon {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 24px 7px 12px;
+  background: var(--pink);
+  clip-path: polygon(0 0, 100% 0, calc(100% - 10px) 50%, 100% 100%, 0 100%);
+  transition: padding-left 0.15s steps(3);
+}
+
+/* The ribbon's ink outline: filters run before clip-path, so it has to live on this wrapper. */
+.bookmark-outline {
+  display: flex;
+  filter: drop-shadow(0 3px 0 var(--ink)) drop-shadow(-3px 0 0 var(--ink)) drop-shadow(0 -3px 0 var(--ink)) drop-shadow(3px 0 0 var(--ink));
+}
+
+.bookmark-heart {
+  color: var(--pink-deep);
+}
+
+/* The cord starts just inside the notch, so the tassel looks tied to the tip. */
+.bookmark-tassel {
+  margin: 14px 0 0 -16px;
+  transform-origin: top center;
+}
+
+.genre-bookmark:hover .bookmark-ribbon,
+.genre-bookmark[aria-expanded='true'] .bookmark-ribbon {
+  padding-left: 16px;
+  background: var(--lilac);
+}
+
+.genre-bookmark:hover .bookmark-tassel {
+  animation: tassel-sway 0.9s steps(4) infinite alternate;
+}
+
+@keyframes tassel-sway {
+  from {
+    rotate: -12deg;
+  }
+  to {
+    rotate: 12deg;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .genre-bookmark:hover .bookmark-tassel {
+    animation: none;
+  }
+}
+
+.genre-bookmark:focus-visible {
+  outline: 3px dashed var(--ink);
+  outline-offset: 3px;
+}
+
+.genre-key {
+  position: absolute;
+  z-index: 21;
+  top: calc(100% + 14px);
+  left: 0;
+  width: min(620px, calc(100vw - 2 * var(--gutter)));
+  max-height: min(70vh, 640px);
+  overflow: auto;
+}
+
+.genre-key .panel-bar {
+  position: sticky;
+  top: 0;
+}
+
+.panel-close {
+  padding: 0 8px;
+  border: 2px solid var(--ink);
+  background: var(--card);
+  color: var(--ink);
+  font: 600 16px/1.2 var(--pixel);
+  cursor: pointer;
+}
+
+.panel-close:hover {
+  background: var(--pink);
+}
+
+.genre-key .hint {
+  margin: 0 0 14px;
+}
+
+.genre-key-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.genre-key-grid li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font: 500 14px var(--pixel);
+}
+
+.genre-key-grid span {
+  display: grid;
+}
+
+.genre-key-grid small {
+  font: 1.05rem var(--terminal);
+  opacity: 0.8;
 }
 
 /* ---------- Login & loading ---------- */

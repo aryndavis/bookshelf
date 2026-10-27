@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigationType, useSearchParams } from 'react-router-dom'
 import BookCard from '../components/BookCard'
 import BookCover from '../components/BookCover'
+import GenreKey from '../components/GenreKey'
 import { config } from '../config'
 import { addDays, plural, today } from '../lib/dates'
 import { isOverdue } from '../lib/loans'
@@ -119,7 +120,7 @@ export default function Catalog() {
               {arrivals.map((book) => (
                 <li key={book.id}>
                   <Link to={`/book/${book.id}`} className="arrival">
-                    <BookCover title={book.title} color={book.coverColor} pattern={book.coverPattern} size={84} />
+                    <BookCover title={book.title} author={book.author} genre={book.genre} color={book.coverColor} pattern={book.coverPattern} size={84} />
                     <span className="sr-only">{book.title}</span>
                     <span className="new-tag" aria-hidden="true">
                       new!
@@ -143,7 +144,10 @@ export default function Catalog() {
 
       <section className="catalog" aria-labelledby="all-books-title">
         <div className="catalog-head">
-          <h2 id="all-books-title">All books</h2>
+          <div className="catalog-title">
+            <h2 id="all-books-title">All books</h2>
+            <GenreKey />
+          </div>
           <div className="controls">
             <label className="search">
               <span className="sr-only">Search the catalog</span>

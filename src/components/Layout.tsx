@@ -29,7 +29,7 @@ export default function Layout() {
       )}
       <header className="site-header">
         <Link to="/" className="logo">
-          <BookCover title="L" color="pink" pattern="hearts" size={34} />
+          <BookCover title="" color="pink" pattern="hearts" size={34} />
           <span>{config.libraryName}</span>
         </Link>
         <nav className="main-nav" aria-label="Main">

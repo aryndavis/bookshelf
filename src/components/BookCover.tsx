@@ -1,4 +1,6 @@
 import { useId, type ReactElement } from 'react'
+import { coverAuthor, fitLine, textWidth, titleLines, type FittedLine } from '../lib/coverText'
+import { GENRE_ICONS, iconFor } from '../lib/genreIcons'
 import type { CoverColor, CoverPattern } from '../lib/types'
 
 // [cover color, accent color for the pattern and trim]
@@ -28,20 +30,60 @@ const TILES: Record<Exclude<CoverPattern, 'plain'>, [number, number, [number, nu
   waves: [6, 4, [[0, 1], [1, 0], [2, 0], [3, 1], [4, 2], [5, 2]]],
 }
 
+// Text on the darker covers is light; on the rest it's ink. Icons use the accent, darkened where it's too pale.
+const DARK_COVERS = new Set<CoverColor>(['wine', 'navy', 'forest'])
+const ICON_COLOR: Partial<Record<CoverColor, string>> = { yellow: '#b07a0a', cream: '#a8844a' }
+
+// Where things go on the 32 × 42 cover.
+const TEXT_WIDTH = 21
+const CENTER = 16.5
+
 interface BookCoverProps {
   title: string
+  /** Its last name goes on the trim at the bottom. */
+  author?: string
+  /** Picks the icon on the label (see src/lib/genreIcons.ts). */
+  genre?: string
   color: CoverColor
   pattern: CoverPattern
-  /** Width in CSS pixels; height follows the book's shape. */
+  /** Width in CSS pixels; height follows the book's shape. Small covers show just the icon. */
   size?: number
   className?: string
 }
 
-/** A cute pixel-art book, drawn as SVG so it stays crisp at any size. */
-export default function BookCover({ title, color, pattern, size = 120, className = '' }: BookCoverProps) {
+/** A line of cover text, squeezed to fit when fitLine says so. */
+function Line({ line, y, size, font, weight, fill }: { line: FittedLine; y: number; size: number; font: string; weight?: number; fill: string }) {
+  return (
+    <text
+      x={CENTER}
+      y={y}
+      textAnchor="middle"
+      fontSize={size}
+      fontFamily={font}
+      fontWeight={weight}
+      fill={fill}
+      {...(line.squeeze ? { textLength: TEXT_WIDTH, lengthAdjust: 'spacingAndGlyphs' } : {})}
+    >
+      {line.text}
+    </text>
+  )
+}
+
+/** A cute pixel-art book with a genre icon, its title and its author, drawn as SVG so it stays crisp at any size. */
+export default function BookCover({ title, author = '', genre, color, pattern, size = 120, className = '' }: BookCoverProps) {
   const patternId = useId()
   const [main, accent] = PALETTE[color]
-  const letter = (title.trim()[0] ?? '?').toUpperCase()
+  const text = DARK_COVERS.has(color) ? PAPER : INK
+  const iconColor = ICON_COLOR[color] ?? accent
+  const icon = GENRE_ICONS[iconFor(genre)]
+  // Below this, words would be too small to read, so the cover shows just its icon.
+  const withText = size >= 64
+
+  // Two lines of title at the larger size if they fit, else up to three smaller ones.
+  const large = withText ? titleLines(title, 3.3, TEXT_WIDTH, Infinity) : []
+  const titleSize = large.length <= 2 ? 3.3 : 2.9
+  const lines = large.length <= 2 ? large : titleLines(title, titleSize, TEXT_WIDTH)
+  const name = withText ? fitLine(coverAuthor(author), 2.8, TEXT_WIDTH, textWidth.author) : null
 
   let tile: ReactElement | null = null
   if (pattern !== 'plain') {
@@ -68,19 +110,23 @@ export default function BookCover({ title, color, pattern, size = 120, className
       <rect x="0" y="0" width="29" height="40" fill={INK} />
       <rect x="1" y="1" width="27" height="38" fill={main} />
       {tile && <rect x="5" y="1" width="23" height="38" fill={`url(#${patternId})`} opacity="0.55" />}
+      {/* A plain band behind the title, so the pattern doesn't make it hard to read */}
+      {lines.length > 0 && <rect x="5" y="19.5" width="23" height={lines.length * (titleSize + 0.9) + 2} fill={main} />}
       {/* Spine shading and highlight */}
       <rect x="1" y="1" width="3" height="38" fill="#000" opacity="0.2" />
       <rect x="4" y="1" width="1" height="38" fill="#fff" opacity="0.3" />
-      {/* Title label */}
-      <rect x="8" y="7" width="17" height="12" fill={INK} />
-      <rect x="9" y="8" width="15" height="10" fill={PAPER} />
-      <rect x="10" y="17" width="13" height="1" fill={accent} />
-      <text x="16.5" y="15.6" textAnchor="middle" fontSize="8" fontFamily="'Pixelify Sans', monospace" fontWeight="600" fill={INK}>
-        {letter}
-      </text>
-      {/* Trim band */}
-      <rect x="5" y="32" width="23" height="2" fill={accent} />
-      <rect x="5" y="35" width="23" height="1" fill={accent} opacity="0.6" />
+      {/* The label, with the genre's icon */}
+      <rect x="9" y="5.5" width="15" height="12.5" fill={INK} />
+      <rect x="10" y="6.5" width="13" height="10.5" fill={PAPER} />
+      {icon.flatMap((row, y) =>
+        [...row].map((pixel, x) => (pixel === '#' ? <rect key={`${x}-${y}`} x={12 + x * 1.3} y={7.2 + y * 1.3} width="1.3" height="1.3" fill={iconColor} /> : null)),
+      )}
+      {lines.map((line, i) => (
+        <Line key={i} line={line} y={22 + i * (titleSize + 0.9)} size={titleSize} font="'Pixelify Sans', monospace" weight={600} fill={text} />
+      ))}
+      {/* Trim band, with the author's last name under it */}
+      <rect x="5" y="33" width="23" height="1.5" fill={accent} />
+      {name?.text && <Line line={name} y={37.6} size={2.8} font="'VT323', monospace" fill={text} />}
     </svg>
   )
 }
