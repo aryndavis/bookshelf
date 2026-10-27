@@ -1,0 +1,24 @@
+# Supabase pauses free projects after a week with no activity. This reads one row twice a week so the
+# library stays awake. It uses the publishable key, which can only read what signed-out visitors can.
+# Needs repo secrets SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY (the same values as .env.local).
+name: Keep Supabase awake
+
+on:
+  schedule:
+    - cron: '23 14 * * 1,4' # Mondays and Thursdays
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Read one book
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+        run: |
+          curl --fail-with-body -sS --retry 3 --retry-all-errors -o /dev/null -w '%{http_code}\n' \
+            "$SUPABASE_URL/rest/v1/books?select=id&limit=1" -H "apikey: $SUPABASE_PUBLISHABLE_KEY"
