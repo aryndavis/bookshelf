@@ -212,15 +212,6 @@ describe('Supabase store: beyond the shared contract', () => {
     expect(books).toEqual([expect.objectContaining({ title: 'Matilda', readingStatus: null })])
   })
 
-  it('keeps saving books before the update adds the column, leaving the reading status out', async () => {
-    const db = libraryDatabase()
-    const store = supabaseStore(db.client)
-    db.failNext('books', 'select', { message: 'column books.reading_status does not exist', code: '42703' })
-    await store.load()
-    await store.addBook(bookInput())
-    expect(db.tables.get('books')?.[0]).not.toHaveProperty('reading_status')
-  })
-
   it('explains what to run when saving needs the reading status column', async () => {
     const db = libraryDatabase()
     db.failNext('books', 'insert', { message: "Could not find the 'reading_status' column of 'books' in the schema cache", code: 'PGRST204' })

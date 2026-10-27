@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { fillBlanks, genreFrom, hasBlanks, lookupBook, lookupDetails, lookupIsbn, normalizeIsbn } from './openLibrary'
+import { fillBlanks, genreFrom, hasBlanks, lookupBook, lookupDetails, lookupIsbn, normalizeIsbn, sameTitle } from './openLibrary'
 
 describe('normalizeIsbn', () => {
   it('accepts ISBN-10 and ISBN-13 with spaces or dashes', () => {
@@ -69,6 +69,7 @@ describe('genreFrom (subject lists as Open Library returns them)', () => {
     // Subjects that only look like a genre
     ['time travel is not Travel', ['Fiction', 'Time travel', 'Science fiction'], 'Science Fiction'],
     ['political science is Politics', ['Political science', 'Democracy'], 'Politics'],
+    ['social science is not Science', ['Social science', 'Ethnic studies', 'Physics'], 'Science'],
     ['human nature is not Nature', ['Human nature', 'Fiction'], 'Fiction'],
     ['Romance languages are not Romance', ['Romance languages', 'Grammar'], ''],
     ['time management is not Business', ['Time management', 'Self-help techniques'], 'Self-Help'],
@@ -107,6 +108,12 @@ describe('lookupBook by title', () => {
     expect(await lookupBook({ title: 'Odd', author: '' })).toMatchObject({ year: null, pages: null })
   })
 
+  it('ignores an ISBN match for a different book (a mistyped ISBN) and searches by title instead', async () => {
+    const fetch = vi.fn(async (url: URL) => ({ ok: true, json: async () => ({ docs: [url.searchParams.get('isbn') ? { title: 'Cookbook', pages: 90 } : { title: 'Kindred', number_of_pages_median: 287 }] }) }))
+    vi.stubGlobal('fetch', fetch)
+    expect(await lookupDetails({ isbn: '9780807083697', title: 'Kindred', author: '' })).toMatchObject({ title: 'Kindred', pages: 287 })
+  })
+
   it('falls back to the title when Open Library does not know the ISBN', async () => {
     const fetch = vi.fn(async (url: URL) => ({ ok: true, json: async () => ({ docs: url.searchParams.get('isbn') ? [] : [{ title: 'Kindred', first_publish_year: 1979 }] }) }))
     vi.stubGlobal('fetch', fetch)
@@ -134,5 +141,18 @@ describe('fillBlanks', () => {
   it('knows when there is anything left to fill in', () => {
     expect(hasBlanks({ genre: 'Classic', year: 1990, pages: 200 })).toBe(false)
     expect(hasBlanks({ genre: 'Classic', year: 1990, pages: null })).toBe(true)
+  })
+})
+
+describe('sameTitle', () => {
+  it.each([
+    ['The Hobbit', 'The Hobbit: or, There and Back Again', true],
+    ['Les Miserables', 'Les Misérables', true],
+    ['Survivor', 'Survivor Song', false],
+    ['Sapiens: A Graphic History', 'Sapiens: A Brief History of Humankind', false],
+    ['Sapiens: a brief history of humankind', 'Sapiens: A Brief History of Humankind', true],
+    ['', '', false],
+  ])('%s / %s', (a, b, same) => {
+    expect(sameTitle(a, b)).toBe(same)
   })
 })

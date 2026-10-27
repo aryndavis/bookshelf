@@ -15,10 +15,10 @@ export default function Loans() {
   const open = loans.filter((l) => !l.returnedOn && bookById.has(l.bookId))
   const history = loans.filter((l) => l.returnedOn && bookById.has(l.bookId)).sort((a, b) => (b.returnedOn ?? '').localeCompare(a.returnedOn ?? ''))
 
-  // Group open loans by borrower, overdue people first, with the first way to reach them that was given.
+  // Group open loans by borrower, overdue people first, with the latest way to reach them.
   const people = groupByName(open, (l) => l.borrower, (l) => l.loanedOn).map((g) => ({
     name: g.name,
-    contact: g.items.find((l) => l.contact)?.contact ?? '',
+    contact: [...g.items].reverse().find((l) => l.contact)?.contact ?? '',
     loans: g.items,
     overdue: g.overdue,
   }))

@@ -15,7 +15,9 @@ export interface LookupResult {
 
 // Plain genres and the subjects that point to them, most specific first. Open Library's subjects are a
 // mix of library headings, bookstore categories and tags, so these match loosely.
-const GENRES: [string, RegExp][] = [
+// An optional third pattern rules a subject out ("political science" isn't Science). Kept as separate
+// patterns, not a lookbehind, which Safari before 16.4 can't parse.
+const GENRES: [string, RegExp, RegExp?][] = [
   ['Graphic Novel', /graphic novel|comic/],
   ['Poetry', /poetry|poems/],
   ['Children’s', /juvenile|children['’]s (fiction|stories|books|literature)/],
@@ -36,7 +38,7 @@ const GENRES: [string, RegExp][] = [
   ['Nature', /^nature\b|natural history|ecology|botany|^plants\b/],
   ['Technology', /artificial intelligence|computer|technology/],
   ['Politics', /politic/],
-  ['Science', /(?<!social |political )\bscience\b|physics|biology|astronomy|chemistry/],
+  ['Science', /\bscience\b|physics|biology|astronomy|chemistry/, /(social|political) science/],
   ['Psychology', /psychology/],
   ['Philosophy', /philosophy/],
   ['Business', /business|economics|^management\b/],
@@ -45,14 +47,14 @@ const GENRES: [string, RegExp][] = [
   ['Travel', /^travel\b|travel writing|description and travel/],
   ['Classic', /\bclassics?\b/],
 ]
-const GENERAL: [string, RegExp][] = [
+const GENERAL: [string, RegExp, RegExp?][] = [
   ['Nonfiction', /nonfiction|non-fiction/],
   ['Fiction', /fiction|novel/],
 ]
 
-const firstMatch = (subjects: string[], genres: [string, RegExp][]) => {
+const firstMatch = (subjects: string[], genres: [string, RegExp, RegExp?][]) => {
   for (const subject of subjects) {
-    const found = genres.find(([, pattern]) => pattern.test(subject))
+    const found = genres.find(([, pattern, not]) => pattern.test(subject) && !not?.test(subject))
     if (found) return found[0]
   }
   return ''
@@ -68,16 +70,25 @@ export function genreFrom(subjects: string[]): string {
   return firstMatch(tagged, GENRES) || firstMatch(lower, GENRES) || firstMatch(lower, GENERAL)
 }
 
-// The main title (before any subtitle) in letters and digits only, so "The Hobbit: or, There and Back Again"
-// matches "the hobbit" but "Survivor Song" doesn't match "Survivor".
-const mainTitle = (text: string) =>
+// Letters and digits only, without accents: "Les Misérables!" → "les miserables".
+const simplify = (text: string) =>
   text
-    .split(':')[0]
     .toLowerCase()
     .normalize('NFD')
     .replace(/\p{M}/gu, '') // accents: "Misérables" → "miserables"
     .replace(/[^\p{L}\p{N}]+/gu, ' ')
     .trim()
+
+/**
+ * Whether two titles name the same book. A subtitle on just one side is ignored ("The Hobbit" matches "The Hobbit:
+ * or, There and Back Again"), but two different subtitles don't match, and "Survivor Song" isn't "Survivor".
+ */
+export function sameTitle(a: string, b: string) {
+  const [mainA, ...restA] = a.split(':')
+  const [mainB, ...restB] = b.split(':')
+  if (!simplify(mainA) || simplify(mainA) !== simplify(mainB)) return false
+  return restA.length === 0 || restB.length === 0 || simplify(restA.join(':')) === simplify(restB.join(':'))
+}
 
 /**
  * Look up a book on Open Library (openlibrary.org) by ISBN, or else by title (and author, if known).
@@ -100,7 +111,7 @@ export async function lookupBook(query: { isbn: string } | { title: string; auth
   }
   const doc = json.docs?.[0]
   if (!doc || typeof doc.title !== 'string') return null
-  if ('title' in query && (!mainTitle(query.title) || mainTitle(query.title) !== mainTitle(doc.title))) return null
+  if ('title' in query && !sameTitle(query.title, doc.title)) return null
   return {
     title: doc.title.slice(0, 300),
     author: Array.isArray(doc.author_name) ? doc.author_name.filter((a) => typeof a === 'string').join(' & ').slice(0, 300) : '',
@@ -126,8 +137,11 @@ export function fillBlanks<T extends { genre: string; year: number | null; pages
 /** True when a lookup could add something: a blank genre, year or pages, and an ISBN or title to search with. */
 export const hasBlanks = (book: { genre: string; year: number | null; pages: number | null }) => !book.genre || book.year === null || book.pages === null
 
-/** Looks a book up by its ISBN, and by title and author if there's no ISBN or Open Library doesn't know it. */
+/**
+ * Looks a book up by its ISBN, and by title and author if there's no ISBN or Open Library doesn't know it.
+ * An ISBN match must have the same title too, so a mistyped ISBN can't fill in some other book's details.
+ */
 export async function lookupDetails(book: { isbn: string | null; title: string; author: string }, signal?: AbortSignal) {
   const byIsbn = book.isbn ? await lookupBook({ isbn: book.isbn }, signal) : null
-  return byIsbn ?? lookupBook({ title: book.title, author: book.author }, signal)
+  return byIsbn && sameTitle(book.title, byIsbn.title) ? byIsbn : lookupBook({ title: book.title, author: book.author }, signal)
 }

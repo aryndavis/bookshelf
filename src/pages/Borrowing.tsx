@@ -173,7 +173,7 @@ function BorrowedBook({ borrowing }: { borrowing: Borrowing }) {
             </>
           ) : (
             <>
-              <button type="button" className="pixel-button return-button small" disabled={busy} onClick={() => act(() => giveBack(borrowing.id, t))}>
+              <button type="button" className="pixel-button return-button small" disabled={busy} onClick={() => act(() => giveBack(borrowing.id, today()))}>
                 ↩ Gave it back
               </button>
               <button type="button" className="pixel-button secondary small" onClick={() => setConfirmRemove(true)} aria-label={`Remove ${borrowing.title}`}>

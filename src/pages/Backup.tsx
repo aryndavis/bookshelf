@@ -13,7 +13,7 @@ const PAUSE_MS = 400
 /** Looks up every book with a blank genre, year or pages and fills in what Open Library knows. */
 function FillDetails() {
   const { books, updateBook } = useLibrary()
-  const [progress, setProgress] = useState<{ done: number; total: number; filled: number; running: boolean; error?: string } | null>(null)
+  const [progress, setProgress] = useState<{ done: number; total: number; filled: number; running: boolean; stopped?: boolean; error?: string } | null>(null)
   const stopped = useRef(false)
   // Each save starts from the book as it is now, so an edit made while this runs isn't undone.
   const latest = useRef(books)
@@ -33,9 +33,13 @@ function FillDetails() {
     stopped.current = false
     const queue = missing.map((b) => b.id)
     let filled = 0
+    let failedInARow = 0
     setProgress({ done: 0, total: queue.length, filled, running: true })
     for (const [i, id] of queue.entries()) {
-      if (stopped.current) break
+      if (stopped.current) {
+        setProgress({ done: i, total: queue.length, filled, running: false, stopped: true })
+        return
+      }
       let found = null
       try {
         const book = latest.current.find((b) => b.id === id)
@@ -49,13 +53,20 @@ function FillDetails() {
         try {
           await updateBook(id, toBookInput(next))
           filled++
+          failedInARow = 0
         } catch (e) {
-          // A save failing (signed out, database not updated) will fail for the rest too, so stop and say why.
-          setProgress({ done: i, total: queue.length, filled, running: false, error: (e as Error).message })
-          return
+          // One book can fail (deleted on another device); a few in a row (signed out, database not updated)
+          // will fail for the rest too, so stop and say why.
+          if (++failedInARow === 3) {
+            setProgress({ done: i + 1, total: queue.length, filled, running: false, error: (e as Error).message })
+            return
+          }
         }
       }
-      if (stopped.current) break
+      if (stopped.current) {
+        setProgress({ done: i + 1, total: queue.length, filled, running: false, stopped: true })
+        return
+      }
       setProgress({ done: i + 1, total: queue.length, filled, running: true })
       await new Promise((resolve) => setTimeout(resolve, PAUSE_MS))
     }
@@ -74,7 +85,8 @@ function FillDetails() {
         <p className="hint" role="status">
           Looked up {progress.done} of {progress.total}
           {progress.running ? '…' : '.'} Filled in {plural(progress.filled, 'book')}.
-          {!progress.running && !progress.error && progress.filled < progress.done && ' Open Library didn’t have the rest; fill them in by hand.'}
+          {progress.stopped && ' Stopped.'}
+          {!progress.running && !progress.stopped && !progress.error && progress.filled < progress.done && ' Open Library didn’t have the rest; fill them in by hand.'}
         </p>
       )}
       {progress?.error && (

@@ -1,11 +1,11 @@
-import { useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import BookCover, { PALETTE } from '../components/BookCover'
 import NotInCatalog from '../components/NotInCatalog'
 import Panel from '../components/Panel'
 import { pick } from '../lib/books'
 import { today } from '../lib/dates'
-import { fillBlanks, hasBlanks, lookupDetails, lookupIsbn, normalizeIsbn } from '../lib/openLibrary'
+import { fillBlanks, hasBlanks, lookupDetails, lookupIsbn, normalizeIsbn, type LookupResult } from '../lib/openLibrary'
 import { READING_LABELS } from '../lib/reading'
 import { COVER_COLORS, COVER_PATTERNS, READING_STATUSES, type Book, type BookInput, type CoverColor, type CoverPattern, type ReadingStatus } from '../lib/types'
 import { useLibrary } from '../state/LibraryContext'
@@ -56,9 +56,13 @@ function parseDraft(d: Draft): BookInput | string {
   return { ...d, title: d.title.trim(), author: d.author.trim(), genre: d.genre.trim(), notes: d.notes.trim(), isbn, year, pages }
 }
 
-/** Fills in a new book's blank genre, year or pages from Open Library. Saving never waits long or fails because of it. */
-async function withDetails(input: BookInput): Promise<BookInput> {
+/**
+ * Fills in a new book's blank genre, year or pages from Open Library, reusing the Look up just done for this ISBN
+ * if there was one. Saving never waits long or fails because of it.
+ */
+async function withDetails(input: BookInput, lookedUp: { isbn: string; found: LookupResult } | null): Promise<BookInput> {
   if (!hasBlanks(input)) return input
+  if (lookedUp && lookedUp.isbn === input.isbn) return fillBlanks(input, lookedUp.found)
   try {
     return fillBlanks(input, await lookupDetails(input, AbortSignal.timeout(5000)))
   } catch {
@@ -77,6 +81,13 @@ function BookFormInner({ existing }: { existing?: Book }) {
   const titleRef = useRef<HTMLInputElement>(null)
   // Bumped when a lookup starts or is abandoned, so a stale answer can't overwrite newer input.
   const lookupRun = useRef(0)
+  // The last Look up's answer, so saving doesn't ask Open Library the same question again.
+  const lookedUp = useRef<{ isbn: string; found: LookupResult } | null>(null)
+  // Bumped to move focus to the title once the form is unlocked (a disabled field can't take focus).
+  const [focusTitle, setFocusTitle] = useState(0)
+  useEffect(() => {
+    if (focusTitle) titleRef.current?.focus()
+  }, [focusTitle])
   const genres = [...new Set(books.map((b) => b.genre).filter(Boolean))].sort()
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft((d) => ({ ...d, [key]: value }))
@@ -96,17 +107,20 @@ function BookFormInner({ existing }: { existing?: Book }) {
       const found = await lookupIsbn(isbn)
       if (run !== lookupRun.current) return
       if (!found) return setLookup({ state: 'done', message: 'No match on Open Library. Fill it in by hand.' })
+      lookedUp.current = { isbn, found }
       setDraft((d) => {
-        // Fill in what was found, but keep anything typed while the lookup was running.
-        const fill = (key: 'title' | 'author' | 'genre' | 'year' | 'pages', value: string | undefined) => (value && d[key] === started[key] ? value : d[key])
+        // Replace the title and author unless they were changed while the lookup ran; fill the other details
+        // only where they're blank, so nothing typed is changed.
+        const replace = (key: 'title' | 'author', value: string) => (value && d[key] === started[key] ? value : d[key])
+        const fillBlank = (key: 'genre' | 'year' | 'pages', value: string | undefined) => (d[key].trim() ? d[key] : (value ?? ''))
         return {
           ...d,
           isbn,
-          title: fill('title', found.title),
-          author: fill('author', found.author),
-          genre: fill('genre', found.genre),
-          year: fill('year', found.year?.toString()),
-          pages: fill('pages', found.pages?.toString()),
+          title: replace('title', found.title),
+          author: replace('author', found.author),
+          genre: fillBlank('genre', found.genre),
+          year: fillBlank('year', found.year?.toString()),
+          pages: fillBlank('pages', found.pages?.toString()),
         }
       })
       setLookup({ state: 'done', message: `Found “${found.title}”. Check the details below.` })
@@ -125,7 +139,7 @@ function BookFormInner({ existing }: { existing?: Book }) {
     setError(null)
     try {
       // Only new books: on an edit, a blank field may have been cleared on purpose.
-      const input = existing ? parsed : await withDetails(parsed)
+      const input = existing ? parsed : await withDetails(parsed, lookedUp.current)
       if (existing) {
         await updateBook(existing.id, input)
         navigate(`/book/${existing.id}`)
@@ -133,10 +147,12 @@ function BookFormInner({ existing }: { existing?: Book }) {
         const book = await addBook(input)
         if (another) {
           setAdded(book.title)
-          setDraft(toDraft({ ...blank(), acquiredOn: input.acquiredOn }))
+          // A stack is usually bought (and read, or not) together: keep the date and the reading status.
+          setDraft(toDraft({ ...blank(), acquiredOn: input.acquiredOn, readingStatus: input.readingStatus }))
           cancelLookup()
+          lookedUp.current = null
           setBusy(false)
-          titleRef.current?.focus()
+          setFocusTitle((n) => n + 1)
         } else {
           navigate(`/book/${book.id}`, { state: { added: true } })
         }
