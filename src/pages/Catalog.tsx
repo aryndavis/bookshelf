@@ -4,6 +4,7 @@ import BookCard from '../components/BookCard'
 import BookCover from '../components/BookCover'
 import GenreKey from '../components/GenreKey'
 import { config } from '../config'
+import { newArrivals } from '../lib/books'
 import { addDays, plural, today } from '../lib/dates'
 import { isOverdue } from '../lib/loans'
 import { READING_LABELS } from '../lib/reading'
@@ -72,10 +73,7 @@ export default function Catalog() {
   const overdueCount = [...activeLoans.values()].filter(isOverdue).length
   const borrowers = new Set([...activeLoans.values()].map((l) => l.borrower.trim().toLowerCase())).size
   const since = addDays(today(), -config.newArrivalDays)
-  const arrivals = books
-    .filter((b) => b.acquiredOn >= since)
-    .sort((a, b) => b.acquiredOn.localeCompare(a.acquiredOn) || b.createdAt.localeCompare(a.createdAt))
-    .slice(0, 8)
+  const arrivals = newArrivals(books, since)
 
   const needle = query.trim().toLowerCase()
   const shown = books
@@ -153,7 +151,7 @@ export default function Catalog() {
               <span className="sr-only">Search the catalog</span>
               <input
                 type="search"
-                placeholder={canEdit ? 'Search title, author, genre, borrower…' : 'Search title, author, genre…'}
+                placeholder={canEdit ? 'Search books or borrowers…' : 'Search title, author, genre…'}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />

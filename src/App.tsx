@@ -1,18 +1,22 @@
+import { lazy } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import BookCover from './components/BookCover'
 import Layout from './components/Layout'
 import NotInCatalog from './components/NotInCatalog'
 import OwnerOnly from './components/OwnerOnly'
 import Panel from './components/Panel'
-import Backup from './pages/Backup'
-import { AddBook, EditBook } from './pages/BookForm'
-import Borrowing from './pages/Borrowing'
 import BookPage from './pages/BookPage'
 import Catalog from './pages/Catalog'
-import Loans from './pages/Loans'
 import Login from './pages/Login'
 import SignIn from './pages/SignIn'
 import { LibraryProvider, useLibrary } from './state/LibraryContext'
+
+// Owner-only pages load on first use, so visitors don't download them.
+const AddBook = lazy(() => import('./pages/BookForm').then((m) => ({ default: m.AddBook })))
+const EditBook = lazy(() => import('./pages/BookForm').then((m) => ({ default: m.EditBook })))
+const Loans = lazy(() => import('./pages/Loans'))
+const Borrowing = lazy(() => import('./pages/Borrowing'))
+const Backup = lazy(() => import('./pages/Backup'))
 
 /** Shows the login, loading, or error screen until the library is ready. */
 function Gate() {
