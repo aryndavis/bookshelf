@@ -523,7 +523,9 @@ textarea:focus-visible {
 
 .controls {
   display: flex;
+  flex: 1 1 auto;
   flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 10px;
   align-items: flex-end;
 }
@@ -532,8 +534,20 @@ textarea:focus-visible {
   margin: 0;
 }
 
-.search input {
-  width: min(100%, 340px);
+.search {
+  flex: 1 1 260px;
+  max-width: 320px;
+}
+
+@media (max-width: 640px) {
+  .search {
+    max-width: none;
+  }
+}
+
+.controls input,
+.controls select {
+  font-family: var(--pixel);
 }
 
 .sort {
