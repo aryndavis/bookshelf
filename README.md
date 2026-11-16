@@ -73,6 +73,7 @@ Without Supabase settings the app runs in **demo mode**: sample books, saved onl
    - Until this is run, the app asks visitors to sign in before showing anything, as before.
 6. **SQL Editor → New query:** paste in [`supabase/update-2026-10.sql`](supabase/update-2026-10.sql) and run it. It adds reading status to books (visible to visitors) and the private `borrowings` table. If you set things up before October 2026, run just this step. Until it's run, the app still works, but borrowing asks you to run it, and saving a book needs it.
 7. Copy `.env.example` to `.env.local` and fill in the **Project URL** and the **publishable key**. `.env.local` is gitignored.
+8. **GitHub → Settings → Secrets and variables → Actions:** add the same two values as `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY`. Free Supabase projects pause after a week without activity, so [a scheduled workflow](.github/workflows/supabase-keepalive.yml) reads one row of public data twice a week to keep the project awake.
 
 The publishable key is meant to be public; the database rules protect your data. **Never** put the secret / `service_role` key in this app or repo.
 
